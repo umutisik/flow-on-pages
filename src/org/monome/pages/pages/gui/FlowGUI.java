@@ -140,7 +140,7 @@ public class FlowGUI extends JPanel implements Serializable {
 			rowCB.addActionListener(new java.awt.event.ActionListener() {
 				public void actionPerformed(java.awt.event.ActionEvent e) {
 					int index = rowCB.getSelectedIndex();
-					String noteVal = page.numberToMidiNote(page.noteNumbers[index]);
+					String noteVal = page.numberToMidiNote(page.selectedChannel.noteNumbers[index]);
 					noteTF.setText(noteVal);
 				}
 			});
@@ -255,7 +255,7 @@ public class FlowGUI extends JPanel implements Serializable {
 				public void actionPerformed(java.awt.event.ActionEvent e) {
 					String midiNote = noteTF.getText();
 					int index = rowCB.getSelectedIndex();
-					page.noteNumbers[index] = page.noteToMidiNumber(midiNote);
+					page.selectedChannel.noteNumbers[index] = page.noteToMidiNumber(midiNote);
 					if (quantCB.getSelectedIndex() == 0) {
 						page.quantization = 96;
 					} else if (quantCB.getSelectedIndex() == 1) {
@@ -272,18 +272,18 @@ public class FlowGUI extends JPanel implements Serializable {
 					try {
 						int bankSize = Integer.parseInt(bankSizeTF.getText());
 						if (bankSize < 1 || bankSize > 64) {
-							bankSizeTF.setText(""+page.bankSize);
+							bankSizeTF.setText(""+page.selectedChannel.bankSize);
 							return;
 						}
 						page.setBankSize(bankSize);
 						int midiChannel = Integer.parseInt(channelTF.getText());
 						if (midiChannel < 1 || midiChannel > 16) {
-							bankSizeTF.setText(page.midiChannel);
+							bankSizeTF.setText(Integer.toString(page.selectedChannel.midiChannel));
 							return;
 						}
 						page.setMidiChannel(channelTF.getText());
 					} catch (NumberFormatException ex) {
-						bankSizeTF.setText(""+page.bankSize);
+						bankSizeTF.setText(""+page.selectedChannel.bankSize);
 						return;
 					}
 				}

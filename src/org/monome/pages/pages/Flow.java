@@ -161,7 +161,7 @@ public class Flow implements Page, Serializable {
 	
 	// sequencer channels, these are the columns of the bank mode
 	// a single one can be played at a time, much like ableton live's clip launcher
-	private class SequencerChannel {
+	public class SequencerChannel {
 		
 		public static final int MAX_SEQUENCE_LENGTH = 128;
 		public static final int NUMBER_OF_BANKS = 20;
@@ -368,8 +368,8 @@ public class Flow implements Page, Serializable {
 	/**  
 	 * channels, each channel represents an instrument
 	 * */
-	private SequencerChannel[] channels = new SequencerChannel[NUMBER_OF_CHANNELS];
-	private SequencerChannel selectedChannel;
+	public SequencerChannel[] channels = new SequencerChannel[NUMBER_OF_CHANNELS];
+	public SequencerChannel selectedChannel;
 	/**
 	 * 1 = bank clear mode enabled
 	 */
