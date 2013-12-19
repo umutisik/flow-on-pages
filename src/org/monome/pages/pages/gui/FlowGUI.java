@@ -312,10 +312,10 @@ public class FlowGUI extends JPanel implements Serializable {
 					String rootNoteText = rootTF.getText();
 					int rootNoteNumber = page.noteToMidiNumber(rootNoteText);
 					int scaleIndex=0;
-					page.noteNumbers[0] = rootNoteNumber;
+					page.selectedChannel.noteNumbers[0] = rootNoteNumber;
 					int rowIndex=1;
 					while(rowIndex<16) {
-						page.noteNumbers[rowIndex] = page.noteNumbers[rowIndex-1] + scaleJumps[selectedScaleIndex][scaleIndex];
+						page.selectedChannel.noteNumbers[rowIndex] = page.selectedChannel.noteNumbers[rowIndex-1] + scaleJumps[selectedScaleIndex][scaleIndex];
 						rowIndex++;
 						scaleIndex++;
 						if(scaleJumps[selectedScaleIndex][scaleIndex]==-99)
@@ -326,7 +326,7 @@ public class FlowGUI extends JPanel implements Serializable {
 					setScaleForKeyboardMode();
 					
 					// update the selected row's value in the text field
-					String noteVal = page.numberToMidiNote(page.noteNumbers[rowCB.getSelectedIndex()]);
+					String noteVal = page.numberToMidiNote(page.selectedChannel.noteNumbers[rowCB.getSelectedIndex()]);
 					noteTF.setText(noteVal);
 				}
 			});
