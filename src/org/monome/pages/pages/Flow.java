@@ -284,7 +284,7 @@ public class Flow implements Page, Serializable {
 
 		this.gui = new FlowGUI(this);
 		
-		gui.channelTF.setText("1");
+		gui.channelTF.setText("0");
 		gui.bankSizeTF.setText(""+channels[0].bankSize);
 		
 		this.setQuantization("6");
@@ -395,7 +395,7 @@ public class Flow implements Page, Serializable {
 							this.monome.vari_led(x, this.monome.sizeY-1, this.briOn, this.index);
 						}
 					}
-					asdfasdf
+					//asdfasdf TODO fix
 					if (x == ButtonNoCopy && this.bankCopyMode == 0) {
 						if (this.bankClearMode == 1) {
 							this.bankClearMode = 0;

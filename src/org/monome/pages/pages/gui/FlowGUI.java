@@ -21,6 +21,7 @@ public class FlowGUI extends JPanel implements Serializable {
 	Flow page;
 	private JLabel pageLabel = null;
 	public JComboBox rowCB = null;
+	public JComboBox channelCB = null;
 	private JLabel rowLBL = null;
 	public JTextField noteTF = null;
 	
@@ -34,6 +35,7 @@ public class FlowGUI extends JPanel implements Serializable {
 	private JButton saveBtn = null;
 	private JLabel bankSizeLBL = null;
 	public JTextField bankSizeTF = null;
+	private JLabel midiChannelLBL = null;
 	private JLabel channelLBL = null;
 	public JTextField channelTF = null;
 	private JLabel holdModeLBL = null;
@@ -41,6 +43,7 @@ public class FlowGUI extends JPanel implements Serializable {
 	private String[] rowChoices = {"Row 1", "Row 2", "Row 3", "Row 4", "Row 5", "Row 6",
 			"Row 7", "Row 8", "Row 9", "Row 10", "Row 11", "Row 12", "Row 13", "Row 14",
 			"Row 15", "Row 16"};
+	
 	private String[] scaleChoices = { "Major", "Minor", "Chromatic" };
 	// the jump in semitones between notes in the scale, automatically cycles before the -99
 	// the scale is kept in a different format in flow.java, it is converted to it when it is generated here
@@ -71,10 +74,10 @@ public class FlowGUI extends JPanel implements Serializable {
 		quantLBL.setBounds(new Rectangle(15, 135, 76, 16));
 		quantLBL.setText("Quantization");
 		quantLBL.setHorizontalAlignment(SwingConstants.RIGHT);
-		channelLBL = new JLabel();
-		channelLBL.setBounds(new Rectangle(35, 80, 51, 21));
-		channelLBL.setText("Channel");
-		channelLBL.setHorizontalAlignment(SwingConstants.RIGHT);
+		midiChannelLBL = new JLabel();
+		midiChannelLBL.setBounds(new Rectangle(35, 80, 51, 21));
+		midiChannelLBL.setText("Channel");
+		midiChannelLBL.setHorizontalAlignment(SwingConstants.RIGHT);
 		bankSizeLBL = new JLabel();
 		bankSizeLBL.setBounds(new Rectangle(30, 55, 56, 21));
 		bankSizeLBL.setText("Bank Size");
@@ -84,8 +87,10 @@ public class FlowGUI extends JPanel implements Serializable {
 		this.add(getPageLabel(), null);
 		this.add(getNoteTF(), null);
 		this.add(getRowCB(), null);
+		this.add(getChannelCB(), null);
 		this.add(getRowLBL(), null);
 		this.add(getScaleLBL(), null);
+		
 		this.add(getRootLBL(), null);
 		this.add(getScaleCB(), null);
 		this.add(getRootTF(), null);
@@ -94,7 +99,8 @@ public class FlowGUI extends JPanel implements Serializable {
 		this.add(getSaveBtn(), null);
 		this.add(bankSizeLBL, null);
 		this.add(getBankSizeTF(), null);
-		this.add(channelLBL, null);
+		this.add(getChannelLBL(), null);
+		this.add(midiChannelLBL, null);
 		this.add(getChannelTF(), null);
 		this.add(getHoldModeLBL(), null);
 		this.add(getHoldModeCB(), null);
@@ -106,6 +112,11 @@ public class FlowGUI extends JPanel implements Serializable {
 		}
 		for (int i = 0; i < scaleChoices.length; i++){
 			scaleCB.addItem(scaleChoices[i]);
+		}
+		for(int i=0; i<16; i++)
+		{
+			int numma = i+1;
+			channelCB.addItem(Integer.toString(numma));
 		}
 		
 		setScaleForKeyboardMode();
@@ -149,6 +160,25 @@ public class FlowGUI extends JPanel implements Serializable {
 	}
 
 	/**
+	 * This method initializes rowCB	
+	 * 	
+	 * @return javax.swing.JComboBox	
+	 */
+	private JComboBox getChannelCB() {
+		if (channelCB == null) {
+			channelCB = new JComboBox();
+			channelCB.setBounds(new Rectangle(400, 5, 71, 23));
+			channelCB.addActionListener(new java.awt.event.ActionListener() {
+				public void actionPerformed(java.awt.event.ActionEvent e) {
+					int index = channelCB.getSelectedIndex();
+					// do something with the selected channel
+				}
+			});
+		}
+		return channelCB;
+	}
+	
+	/**
 	 * This method initializes rowLBL	
 	 * 	
 	 * @return javax.swing.JLabel	
@@ -161,6 +191,17 @@ public class FlowGUI extends JPanel implements Serializable {
 			rowLBL.setHorizontalAlignment(SwingConstants.RIGHT);
 		}
 		return rowLBL;
+	}
+	
+
+	private JLabel getChannelLBL() {
+		if(channelLBL == null) {
+			channelLBL = new JLabel();
+			channelLBL.setText("Channel");
+			channelLBL.setBounds(new Rectangle(300, 5, 71, 21));
+			channelLBL.setHorizontalAlignment(SwingConstants.RIGHT);
+		}
+		return channelLBL;
 	}
 
 	/*
