@@ -103,14 +103,6 @@ public class Flow implements Page, Serializable {
 	 */
 	private int transpose = 0;
 	
-	private int rootNoteX = 2; //placement of the root note in keyboard mode
-	private int rootNoteY = 14;
-	private int rowOffset = 7; //in number of notes in scale not semitones!
-	
-	public int rootNoteMidiNumber = 36; // default is C1
-	public int[] scaleNoteDiffsToRoot = {0,2,4,5,7,9,11,-99,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}; // default is major 
-	public int scaleLength = 7;
-	public int scaleTotalInSemitones = 12;
 	
 
 //	
@@ -260,6 +252,7 @@ public class Flow implements Page, Serializable {
 			channels[i] = new SequencerChannel(this.monome, this.index);
 			channels[i].number = i;
 			channels[i].midiChannel = i;
+			generateIsMidiNumberInScale(channels[i]);
 		}
 
 		
@@ -277,6 +270,7 @@ public class Flow implements Page, Serializable {
 			midiNoteOffSchedule[i] = new ArrayList<FlowMidiEvent>();
 		}
 
+		
 
 		// setup default notes
 		//gui.channelTF.setText(Integer.toString(channels[0].midiChannel));
@@ -343,11 +337,11 @@ public class Flow implements Page, Serializable {
 				int velocity = value * 127;
 				int channel = 1;
 				
-				int midi_num = this.keyboardModeNoteNumberToMidiNumber((x - rootNoteX) + rowOffset*(rootNoteY-y));
+				int midi_num = this.keyboardModeNoteNumberToMidiNumber((x - selectedChannel.rootNoteX) + selectedChannel.rowOffset*(selectedChannel.rootNoteY-y), selectedChannel);
 				if (midi_num > 127) midi_num = 127;
 				if (midi_num < 0) midi_num = 0;
 				this.playNote(midi_num, velocity, channel, value);
-				keyboardModeLedFromNoteNumber((x - rootNoteX) + rowOffset*(rootNoteY-y), briKeybSameNote*value);
+				keyboardModeLedFromNoteNumber((x - selectedChannel.rootNoteX) + selectedChannel.rowOffset*(selectedChannel.rootNoteY-y), briKeybSameNote*value, selectedChannel);
 				// extra brightness for the key actually pressed
 				if(value>0)
 					this.monome.vari_led(x, y, this.briKeybNotePressed*value, this.index);
@@ -790,7 +784,7 @@ public class Flow implements Page, Serializable {
 			}
 			
 			if(this.channels[midiev.sourceChannelNumber].showInKeyboardMode && this.mode == KEYBOARDMODE) {
-				keyboardModeLedFromNoteNumber(keyboardModeNoteNumberFromMidiNumber(midino), 0);
+				keyboardModeLedFromMidiNumber(midino, 0, selectedChannel);
 			}
 		}
 		
@@ -982,7 +976,7 @@ public class Flow implements Page, Serializable {
 					if(chan != selectedChannel)
 						value = briKeybOtherChannels;
 				}
-				keyboardModeLedFromNoteNumber(keyboardModeNoteNumberFromMidiNumber(note_midi_num), value);
+				keyboardModeLedFromMidiNumber(note_midi_num, value, this.selectedChannel);
 			}
 		}
 	}
@@ -1635,25 +1629,25 @@ public class Flow implements Page, Serializable {
 		}
 	}
 	
-	public int keyboardModeNoteNumberToMidiNumber(int nn) {
+	public int keyboardModeNoteNumberToMidiNumber(int nn, SequencerChannel chan) {
 		int offset = 0;
 		int note;
 		
 		int transp = this.transpose * 12;
 		
 		if(nn>=0) { 
-			while (nn >= scaleLength) {
-				nn -= scaleLength;
-				offset += this.scaleTotalInSemitones;
+			while (nn >= chan.scaleLength) {
+				nn -= chan.scaleLength;
+				offset += chan.scaleTotalInSemitones;
 			}
 		} else {
 			while (nn<0) {
-				nn += scaleLength;
-				offset -= this.scaleTotalInSemitones;
+				nn += chan.scaleLength;
+				offset -= chan.scaleTotalInSemitones;
 			}
 		}
 				
-		note = this.rootNoteMidiNumber + this.scaleNoteDiffsToRoot[nn] + offset;
+		note = chan.rootNoteMidiNumber + chan.scaleNoteDiffsToRoot[nn] + offset;
 		note += (transp + this.accidental);
 		
 		return note;
@@ -1669,47 +1663,78 @@ public class Flow implements Page, Serializable {
 		return 0;
 	}
 
-	public int keyboardModeNoteNumberFromMidiNumber(int num) {
+	public int keyboardModeNoteNumberFromMidiNumber(int num, SequencerChannel chan) {
 		int offset = 0;
 		//bring the number between rootNoteMidiNumber and rootNoteMidiNumber+scaletotalinsemitones
-		while(num >= this.rootNoteMidiNumber + this.scaleTotalInSemitones) {
-			num -= this.scaleTotalInSemitones;
-			offset += scaleLength;
+		while(num >= chan.rootNoteMidiNumber + chan.scaleTotalInSemitones) {
+			num -= chan.scaleTotalInSemitones;
+			offset += chan.scaleLength;
 		}
-		while(num < this.rootNoteMidiNumber) {
-			num += this.scaleTotalInSemitones;
-			offset -= this.scaleLength;
+		while(num < chan.rootNoteMidiNumber) {
+			num += chan.scaleTotalInSemitones;
+			offset -= chan.scaleLength;
 		}
 		//calculate difference to the root
-		num -= this.rootNoteMidiNumber;
-		for(int i=0; i<this.scaleLength; i++) {
-			if(this.scaleNoteDiffsToRoot[i] == num) {
+		num -= chan.rootNoteMidiNumber;
+		for(int i=0; i<chan.scaleLength; i++) {
+			if(chan.scaleNoteDiffsToRoot[i] == num) {
 				return i + offset;
 			}
 		}
 		return -100;
 	}
 	
-	public int keyboardModeXYToNoteNumber(int x, int y) {
-		return (x - this.rootNoteX) + rowOffset*(this.rootNoteY-y);
+	public int keyboardModeXYToNoteNumber(int x, int y, SequencerChannel chan) {
+		return (x - chan.rootNoteX) + chan.rowOffset*(chan.rootNoteY-y);
+	}
+	
+	public void generateIsMidiNumberInScale(SequencerChannel chan) {
+		int start = chan.rootNoteMidiNumber;
+		while(start>0) {
+			start -= chan.scaleTotalInSemitones;
+		}
+		start += chan.scaleTotalInSemitones;
+		
+		int i = 0;
+		for(i=0;i<128;i++)
+			chan.isMidiNumberInScale[i] = false;
+		
+		int oct = 0;
+		int scaleIndex = 0;
+		int midinum = start;
+		
+		while(midinum < 128) {
+			chan.isMidiNumberInScale[midinum] = true;
+			scaleIndex++;
+			if(scaleIndex>=chan.scaleLength) {
+				scaleIndex = 0;
+				oct++;
+			}
+			midinum = start + oct*chan.scaleTotalInSemitones + chan.scaleNoteDiffsToRoot[scaleIndex];
+		}
+	}
+	
+	public void keyboardModeLedFromMidiNumber(int num, int value, SequencerChannel chan) {
+		if(chan.isMidiNumberInScale[num])
+			keyboardModeLedFromNoteNumber(keyboardModeNoteNumberFromMidiNumber(num, chan), value, chan);
 	}
 	
 	// turns on/off all led's corresponding to the note (number not midi number)
-	public void keyboardModeLedFromNoteNumber(int num, int value) {
+	public void keyboardModeLedFromNoteNumber(int num, int value, SequencerChannel chan) {
 		
 		int x=0;
 		int y=monome.sizeY-1;
-		int numBottomLeft = keyboardModeXYToNoteNumber(0, this.monome.sizeY-1);
+		int numBottomLeft = keyboardModeXYToNoteNumber(0, this.monome.sizeY-1, chan);
 		int dumNum=0;
 		
 		if(num < numBottomLeft) // note too low to exist on grid
 			return;
 		
 		//find x,y for note with smallest x
-		if(rowOffset == 0) { // no need to make this work if offset is zero
+		if(chan.rowOffset == 0) { // no need to make this work if offset is zero
 			// not tested
 			y = 0;
-			x = this.rootNoteX + num;
+			x = chan.rootNoteX + num;
 			
 			//don't change the mode buttons
 			if(y == this.monome.sizeY && x > 11)
@@ -1722,11 +1747,11 @@ public class Flow implements Page, Serializable {
 		}
 		else {
 			while(numBottomLeft <= num) {
-				numBottomLeft += this.rowOffset;
+				numBottomLeft += chan.rowOffset;
 				y-=1;
 			}
 			y++; 
-			x = num - (numBottomLeft - this.rowOffset);
+			x = num - (numBottomLeft - chan.rowOffset);
 			dumNum = 0;
 			// light up or down all corresponding notes
 			while(y<this.monome.sizeY && x < this.monome.sizeX) {
@@ -1738,14 +1763,14 @@ public class Flow implements Page, Serializable {
 				else
 					keyboardModeRedrawXYToDefault(x,y);	
 				y++;
-				x += this.rowOffset;
+				x += chan.rowOffset;
 			}	
 		}
 	}	
 
 
 	public void keyboardModeRedrawXYToDefault(int x, int y) {
-		if(keyboardModeXYToNoteNumber(x, y) % this.scaleLength == 0) {
+		if(keyboardModeXYToNoteNumber(x, y, this.selectedChannel) % selectedChannel.scaleLength == 0) {
 			this.monome.vari_led(x, y, briKeybRoot, this.index);
 		}
 		else {
@@ -1811,6 +1836,18 @@ public class Flow implements Page, Serializable {
 			 * noteNumbers[row] - midi note numbers that are sent for each row in the sequencer
 			 */
 			public int[] noteNumbers = new int[16];
+			
+			// keyboard mode scale data
+			private int rootNoteX = 2; //placement of the root note in keyboard mode
+			private int rootNoteY = 14;
+			private int rowOffset = 7; //in number of notes in scale not semitones!
+			
+			public int rootNoteMidiNumber = 36; // default is C1
+			public int[] scaleNoteDiffsToRoot = {0,2,4,5,7,9,11,-99,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}; // default is major 
+			public int scaleLength = 7;
+			public int scaleTotalInSemitones = 12;
+			
+			public boolean[] isMidiNumberInScale = new boolean[128];
 			
 			/**
 			 * 64/40h/128 only, 1 = edit the 2nd page of sequence lanes 

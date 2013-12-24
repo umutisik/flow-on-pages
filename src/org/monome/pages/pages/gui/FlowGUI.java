@@ -22,6 +22,8 @@ public class FlowGUI extends JPanel implements Serializable {
 	private JLabel pageLabel = null;
 	public JComboBox rowCB = null;
 	public JComboBox channelCB = null;
+	public JComboBox keyboardRowOffsetCB;
+	public JLabel keyboardRowOffsetLBL;
 	private JLabel rowLBL = null;
 	public JTextField noteTF = null;
 	
@@ -342,21 +344,22 @@ public class FlowGUI extends JPanel implements Serializable {
 	private JButton getGenerateScaleBtn() {
 		if (generateScaleBtn == null) {
 			generateScaleBtn = new JButton();
-			generateScaleBtn.setBounds(new Rectangle(400, 80, 80, 21));
-			generateScaleBtn.setText("Generate");
+			generateScaleBtn.setBounds(new Rectangle(400, 105, 80, 21));
+			generateScaleBtn.setText("Update");
 			generateScaleBtn.addActionListener(new java.awt.event.ActionListener() {
 				public void actionPerformed(java.awt.event.ActionEvent e) {
 					
 					// start with the first row and set it to the root 
 					// and for 15 more rows, set the note number according to the scale selected
 					int selectedScaleIndex = scaleCB.getSelectedIndex();
+					int guiSelectedChannelIndex = channelCB.getSelectedIndex();
 					String rootNoteText = rootTF.getText();
 					int rootNoteNumber = page.noteToMidiNumber(rootNoteText);
 					int scaleIndex=0;
-					page.selectedChannel.noteNumbers[0] = rootNoteNumber;
+					page.channels[guiSelectedChannelIndex].noteNumbers[0] = rootNoteNumber;
 					int rowIndex=1;
 					while(rowIndex<16) {
-						page.selectedChannel.noteNumbers[rowIndex] = page.selectedChannel.noteNumbers[rowIndex-1] + scaleJumps[selectedScaleIndex][scaleIndex];
+						page.channels[guiSelectedChannelIndex].noteNumbers[rowIndex] = page.channels[guiSelectedChannelIndex].noteNumbers[rowIndex-1] + scaleJumps[selectedScaleIndex][scaleIndex];
 						rowIndex++;
 						scaleIndex++;
 						if(scaleJumps[selectedScaleIndex][scaleIndex]==-99)
@@ -367,7 +370,7 @@ public class FlowGUI extends JPanel implements Serializable {
 					setScaleForKeyboardMode();
 					
 					// update the selected row's value in the text field
-					String noteVal = page.numberToMidiNote(page.selectedChannel.noteNumbers[rowCB.getSelectedIndex()]);
+					String noteVal = page.numberToMidiNote(page.channels[guiSelectedChannelIndex].noteNumbers[rowCB.getSelectedIndex()]);
 					noteTF.setText(noteVal);
 				}
 			});
@@ -453,19 +456,24 @@ public class FlowGUI extends JPanel implements Serializable {
 		int scaleIndex=0;
 		int diffsCount=0;
 		
-		page.rootNoteMidiNumber = rootNoteNumber;
+		int guiSelectedChannelIndex = channelCB.getSelectedIndex();
+				
+		page.channels[guiSelectedChannelIndex].rootNoteMidiNumber = rootNoteNumber;
 		// normalize the root note so that the bottom rows are still low
-		while(page.rootNoteMidiNumber>47)
-			page.rootNoteMidiNumber -= 12;
+		while(page.channels[guiSelectedChannelIndex].rootNoteMidiNumber>47)
+			page.channels[guiSelectedChannelIndex].rootNoteMidiNumber -= 12;
 		
 		do {
-			page.scaleNoteDiffsToRoot[scaleIndex] = diffsCount; 
+			page.channels[guiSelectedChannelIndex].scaleNoteDiffsToRoot[scaleIndex] = diffsCount; 
 			diffsCount += this.scaleJumps[selectedScaleIndex][scaleIndex];
 			scaleIndex++;
 		} while(this.scaleJumps[selectedScaleIndex][scaleIndex] != -99);
 		
-		page.scaleLength = scaleIndex;
-		page.scaleTotalInSemitones = diffsCount;	
+		page.channels[guiSelectedChannelIndex].scaleLength = scaleIndex;
+		page.channels[guiSelectedChannelIndex].scaleTotalInSemitones = diffsCount;
+		
+		page.generateIsMidiNumberInScale(page.channels[guiSelectedChannelIndex]);
+		
 //		System.out.println(page.scaleLength);
 //		System.out.println(page.scaleTotalInSemitones);
 //		System.out.println(page.scaleNoteDiffsToRoot[0]);
