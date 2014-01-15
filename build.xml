@@ -1,5 +1,5 @@
 <project name="pages">
-  <property name="pages.version" value="0.2a49"/>
+  <property name="pages.version" value="0.2a55"/>
   <property name="src" value="./src"/>
   <property name="build" value="./build"/>
   <property name="lib.dir" value="./lib"/>
@@ -36,6 +36,8 @@
         <provider classname="org.monome.pages.pages.GroovyPage"/>
         <provider classname="org.monome.pages.pages.MachineDrumInterfacePage"/>
         <provider classname="org.monome.pages.pages.MIDIKeyboardPage"/>
+      	<provider classname="org.monome.pages.pages.MIDIKeyboard2Page"/>
+      	<provider classname="org.monome.pages.pages.Flow"/>
         <provider classname="org.monome.pages.pages.MIDIFadersPage"/>
         <provider classname="org.monome.pages.pages.MIDIGeneratorPage"/>
         <provider classname="org.monome.pages.pages.MIDIPadsPage"/>

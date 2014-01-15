@@ -69,11 +69,14 @@ public class Flow implements Page, Serializable {
 	public int KEYBOARDMODE = 2;
 	public int MATRIXMODE = 3;
 	public int DEFAULTMODE = 0;
+	
 	// mode button x's (bottom row)
 	public int ButtonNoBank = 12;
 	public int ButtonNoKeyboard = 14;
 	public int ButtonNoMatrix = 13;
-	public int LastModeButton = 12;
+	public int LastModeButton = 12; // this is used in keyboard more to tell which buttons not to play notes for
+	
+	public int ButtonNoPattern = 0; // does not work in keyboard mode
 	
 	public int ButtonNoVelocity = 10;
 	public int ButtonNoMute = 11;
@@ -344,7 +347,7 @@ public class Flow implements Page, Serializable {
 				keyboardModeLedFromNoteNumber((x - selectedChannel.rootNoteX) + selectedChannel.rowOffset*(selectedChannel.rootNoteY-y), briKeybSameNote*value, selectedChannel);
 				// extra brightness for the key actually pressed
 				if(value>0)
-					this.monome.vari_led(x, y, this.briKeybNotePressed*value, this.index);
+					flow_led(x, y, this.briKeybNotePressed*value, this.index);
 				else
 					keyboardModeRedrawXYToDefault(x,y);	
 			}
@@ -353,8 +356,8 @@ public class Flow implements Page, Serializable {
 		else if(this.mode == MATRIXMODE) {
 			if(y !=this.monome.sizeY-1) // not a bottom row button
 			{
-				this.monome.vari_led(x, this.rowSwap[x], 0, this.index);
-				this.monome.vari_led(x, y, briMatrixDefault, this.index);
+				flow_led(x, this.rowSwap[x], 0, this.index);
+				flow_led(x, y, briMatrixDefault, this.index);
 				rowSwap[x]=y;
 			}
 			return;	    
@@ -383,20 +386,20 @@ public class Flow implements Page, Serializable {
 					if (x == ButtonNoClear && this.bankClearMode == 0) {
 						if (this.bankCopyMode == 1) {
 							this.bankCopyMode = 0;
-							this.monome.vari_led(x, this.monome.sizeY-1, this.briOff, this.index);
+							flow_led(x, this.monome.sizeY-1, this.briOff, this.index);
 						} else {
 							this.bankCopyMode = 1;
-							this.monome.vari_led(x, this.monome.sizeY-1, this.briOn, this.index);
+							flow_led(x, this.monome.sizeY-1, this.briOn, this.index);
 						}
 					}
 					//asdfasdf TODO fix
 					if (x == ButtonNoCopy && this.bankCopyMode == 0) {
 						if (this.bankClearMode == 1) {
 							this.bankClearMode = 0;
-							this.monome.vari_led(x, this.monome.sizeY-1, this.briOff, this.index);
+							flow_led(x, this.monome.sizeY-1, this.briOff, this.index);
 						} else {
 							this.bankClearMode = 1;
-							this.monome.vari_led(x, this.monome.sizeY-1, this.briOn, this.index);
+							flow_led(x, this.monome.sizeY-1, this.briOn, this.index);
 						}
 					}
 
@@ -468,20 +471,20 @@ public class Flow implements Page, Serializable {
 					if (x == ButtonNoCopy && this.clearMode == 0 && this.mode != BANKMODE) {
 						if (this.copyMode == 1) {
 							this.copyMode = 0;
-							this.monome.vari_led(x, (this.monome.sizeY - 1), this.briOff, this.index);
+							flow_led(x, (this.monome.sizeY - 1), this.briOff, this.index);
 						} else {
 							this.copyMode = 1;
-							this.monome.vari_led(x, (this.monome.sizeY - 1), this.briOn, this.index);
+							flow_led(x, (this.monome.sizeY - 1), this.briOn, this.index);
 						}
 					}
 					// clear mode
 					if (x == ButtonNoClear && this.copyMode == 0 && this.mode != BANKMODE) {
 						if (this.clearMode == 1) {
 							this.clearMode = 0;
-							this.monome.vari_led(x, (this.monome.sizeY - 1), this.briOff, this.index);
+							flow_led(x, (this.monome.sizeY - 1), this.briOff, this.index);
 						} else {
 							this.clearMode = 1;
-							this.monome.vari_led(x, (this.monome.sizeY - 1), this.briOn, this.index);
+							flow_led(x, (this.monome.sizeY - 1), this.briOn, this.index);
 						}
 					}
 
@@ -531,19 +534,19 @@ public class Flow implements Page, Serializable {
 							if(selectedChannel.sequence[selectedChannel.selectedBank][x_seq+i][y_seq] == 0) {
 								if(x+i <= 15) { 
 									if(this.selectedChannel.seqNoteLengths[selectedChannel.selectedBank][x_seq+i][y_seq] == 0) 
-										this.monome.vari_led(x+i, y, briOff, this.index);
+										flow_led(x+i, y, briOff, this.index);
 									else
-										this.monome.vari_led(x+i, y, briSeqNoteLen, this.index);
+										flow_led(x+i, y, briSeqNoteLen, this.index);
 								}
 							} else { // if there is a note here
 								if(x+i <= 15) 
-									this.monome.vari_led(x+i, y, briSeqNote, this.index);
+									flow_led(x+i, y, briSeqNote, this.index);
 							}
 						}
 						
 							
 						// update the led
-						this.monome.vari_led(x, y, briSeqNote, this.index);
+						flow_led(x, y, briSeqNote, this.index);
 						
 //						//debug
 //						System.out.println("---");System.out.println("---");
@@ -565,11 +568,11 @@ public class Flow implements Page, Serializable {
 					// change velocity	
 					} else if (this.selectedChannel.sequence[selectedChannel.selectedBank][x_seq][y_seq] == 1) {
 						this.selectedChannel.sequence[selectedChannel.selectedBank][x_seq][y_seq] = 2;
-						this.monome.vari_led(x, y, briSeqNote, this.index);
+						flow_led(x, y, briSeqNote, this.index);
 					// remove note
 					} else if (this.selectedChannel.sequence[selectedChannel.selectedBank][x_seq][y_seq] == 2) {
 						this.selectedChannel.sequence[selectedChannel.selectedBank][x_seq][y_seq] = 0;
-						this.monome.vari_led(x, y, 0, this.index);
+						flow_led(x, y, 0, this.index);
 						int note_len = selectedChannel.seqNoteLengths[selectedChannel.selectedBank][x_seq][y_seq];
 						
 						selectedChannel.reGenerateNoteLengthArrayRow(selectedChannel.selectedBank, y_seq, x_seq, x_seq+16);
@@ -596,11 +599,11 @@ public class Flow implements Page, Serializable {
 								break;
 							if(selectedChannel.sequence[selectedChannel.selectedBank][x_seq+i][y_seq] == 0) {
 									if(this.selectedChannel.seqNoteLengths[selectedChannel.selectedBank][x_seq+i][y_seq] == 0) 
-										this.monome.vari_led(x+i, y, briOff, this.index);
+										flow_led(x+i, y, briOff, this.index);
 									else
-										this.monome.vari_led(x+i, y, briSeqNoteLen, this.index);
+										flow_led(x+i, y, briSeqNoteLen, this.index);
 							} else { // if there is a note here
-									this.monome.vari_led(x+i, y, briSeqNote, this.index);
+									flow_led(x+i, y, briSeqNote, this.index);
 							}
 						}
 						
@@ -626,10 +629,10 @@ public class Flow implements Page, Serializable {
 					if (this.selectedChannel.sequence[selectedChannel.selectedBank][x_seq][y_seq] == 1) {
 						if (this.selectedChannel.flashSequence[selectedChannel.selectedBank][x_seq][y_seq] == 0) {
 							this.selectedChannel.flashSequence[selectedChannel.selectedBank][x_seq][y_seq] = 1;
-							this.monome.vari_led(x, y, this.briNoteOn, this.index);
+							flow_led(x, y, this.briNoteOn, this.index);
 						} else {
 							this.selectedChannel.flashSequence[selectedChannel.selectedBank][x_seq][y_seq] = 0;
-							this.monome.vari_led(x, y, 0, this.index);
+							flow_led(x, y, 0, this.index);
 						}
 					}
 				}
@@ -695,7 +698,7 @@ public class Flow implements Page, Serializable {
 							colArgs.add(this.briSeqBar);
 						}
 					}						
-					this.monome.vari_led_col(colArgs, this.index);
+					flow_led_col(colArgs, this.index);
 					this.sequencerModeRedrawCol(this.selectedChannel.sequencePosition % (this.monome.sizeX), 255);
 				}
 			}
@@ -716,7 +719,7 @@ public class Flow implements Page, Serializable {
 					for(int i=0;i<this.monome.sizeY;i++) {
 						colArgs.add(0);
 					}
-					this.monome.vari_led_col(colArgs, this.index);
+					flow_led_col(colArgs, this.index);
 					this.sequencerModeRedrawCol(this.selectedChannel.sequencePosition % (this.monome.sizeX), 0);
 				}
 			}
@@ -819,40 +822,40 @@ public class Flow implements Page, Serializable {
 			for (int y = 0; y < (this.monome.sizeY - 1); y++) {
 				int y_seq = (this.selectedChannel.depth * (this.monome.sizeY - 1)) + y;
 				if (this.selectedChannel.sequence[selectedChannel.selectedBank][x_seq][y_seq] > 0) {
-					this.monome.vari_led(col, y, this.briSeqNote, this.index);
+					flow_led(col, y, this.briSeqNote, this.index);
 				} else if(this.selectedChannel.seqNoteLengths[selectedChannel.selectedBank][x_seq][y_seq] > 0) {
-					this.monome.vari_led(col, y, this.briSeqNoteLen, this.index);
+					flow_led(col, y, this.briSeqNoteLen, this.index);
 				}
 			}
 			if (col == this.pattern) {
-				this.monome.vari_led(col, (this.monome.sizeY - 1), briOn, this.index);
+				flow_led(col, (this.monome.sizeY - 1), briOn, this.index);
 			}
 			else if (col == ButtonNoCopy && this.copyMode == 1) {
-				this.monome.vari_led(col, (this.monome.sizeY - 1), briOn, this.index);
+				flow_led(col, (this.monome.sizeY - 1), briOn, this.index);
 			}
 			else if (col == ButtonNoClear && this.clearMode == 1) {
-				this.monome.vari_led(col, (this.monome.sizeY - 1), briOn, this.index);
+				flow_led(col, (this.monome.sizeY - 1), briOn, this.index);
 			}
 			else if (col == ButtonNoBank && this.mode == BANKMODE) {
-				this.monome.vari_led(col, (this.monome.sizeY - 1), briOn, this.index);
+				flow_led(col, (this.monome.sizeY - 1), briOn, this.index);
 			}
 			else if (col == ButtonNoKeyboard && this.mode == KEYBOARDMODE) {
-				this.monome.vari_led(col, (this.monome.sizeY - 1), briOn, this.index);
+				flow_led(col, (this.monome.sizeY - 1), briOn, this.index);
 			} 
 			else if (col == ButtonNoMatrix && this.mode == MATRIXMODE) {
-				this.monome.vari_led(col, (this.monome.sizeY - 1), this.briOn, this.index);
+				flow_led(col, (this.monome.sizeY - 1), this.briOn, this.index);
 			}
 			else if(col == ButtonNoVelocity && velocityMode == 1) {
-				this.monome.vari_led(col, (this.monome.sizeY - 1), this.briOn, this.index);
+				flow_led(col, (this.monome.sizeY - 1), this.briOn, this.index);
 			}
 			else if(col == ButtonNoMute && muteMode == 1) {
-				this.monome.vari_led(col, (this.monome.sizeY - 1), this.briOn, this.index);
+				flow_led(col, (this.monome.sizeY - 1), this.briOn, this.index);
 			}
 			else if (col == (this.monome.sizeX - 1)) {
-				this.monome.vari_led(col, (this.monome.sizeY - 1), 0, this.index);
+				flow_led(col, (this.monome.sizeY - 1), 0, this.index);
 			} 
 			else {
-					this.monome.vari_led(col, (this.monome.sizeY - 1), 0, this.index);
+					flow_led(col, (this.monome.sizeY - 1), 0, this.index);
 			}
 		}
 	}
@@ -988,7 +991,7 @@ public class Flow implements Page, Serializable {
 		
 		for (int y = 0; y < 16; y++) {
 			if (chan.sequence[chan.playingBank][seq_pos][y] > 0) {
-				this.monome.vari_led(y, rowSwap[y], value, this.index);
+				flow_led(y, rowSwap[y], value, this.index);
 			}
 				
 		}
@@ -1115,7 +1118,7 @@ public class Flow implements Page, Serializable {
 				}
 			}
 			//put the keyboard mode light on
-			this.monome.vari_led(ButtonNoKeyboard, this.monome.sizeY-1, briOn*(this.mode == KEYBOARDMODE ? 1 : 0), this.index);
+			flow_led(ButtonNoKeyboard, this.monome.sizeY-1, briOn*(this.mode == KEYBOARDMODE ? 1 : 0), this.index);
 		}
 		// redraw in matrix mode
 		else if(this.mode == MATRIXMODE) {
@@ -1123,16 +1126,16 @@ public class Flow implements Page, Serializable {
 			for (int x = 0; x < (this.monome.sizeX); x++) {
 				for (y = 0; y < (this.monome.sizeY - 1); y++) {
 					if(y == this.rowSwap[x])
-						this.monome.vari_led(x, y, this.briMatrixDefault, this.index);
+						flow_led(x, y, this.briMatrixDefault, this.index);
 					else
-						this.monome.vari_led(x, y, 0, this.index);
+						flow_led(x, y, 0, this.index);
 				}
 			}
 			y = this.monome.sizeY;
 			for (int x = 0; x < (this.monome.sizeX); x++)
-				this.monome.vari_led(x, y, 0, this.index);
+				flow_led(x, y, 0, this.index);
 			// light up matrix mode key
-			this.monome.vari_led(ButtonNoMatrix, this.monome.sizeY-1, this.briOn*(this.mode == MATRIXMODE ? 1 : 0), this.index);
+			flow_led(ButtonNoMatrix, this.monome.sizeY-1, this.briOn*(this.mode == MATRIXMODE ? 1 : 0), this.index);
 			this.sequencerRedrawBottomRow();
 		}
 		// redrawDevice if we're in bank mode
@@ -1144,10 +1147,10 @@ public class Flow implements Page, Serializable {
 					boolean bankData = false;
 					
 					if(curChannel == selectedChannel && curChannel.selectedBank == y) {
-						this.monome.vari_led(x, y, this.briBankSelectedInSelectedChannel, this.index);
+						flow_led(x, y, this.briBankSelectedInSelectedChannel, this.index);
 					}
 					else if(curChannel.playingBank == y) {
-						this.monome.vari_led(x, y, this.briBankPlaying, this.index);
+						flow_led(x, y, this.briBankPlaying, this.index);
 					} else {
 						search:
 							for (int seqX = 0; seqX < SequencerChannel.MAX_SEQUENCE_LENGTH; seqX++) {
@@ -1160,9 +1163,9 @@ public class Flow implements Page, Serializable {
 							}
 						
 						if (bankData) {
-							this.monome.vari_led(x, y, this.briBankNonEmpty, this.index);
+							flow_led(x, y, this.briBankNonEmpty, this.index);
 						} else {
-							this.monome.vari_led(x, y, this.briOff, this.index);
+							flow_led(x, y, this.briOff, this.index);
 						}
 					}
 				}
@@ -1180,7 +1183,7 @@ public class Flow implements Page, Serializable {
 						value = this.briSeqNote;
 					} else if(this.selectedChannel.seqNoteLengths[selectedChannel.selectedBank][x_seq][y_seq] > 0)
 						value = this.briSeqNoteLen;
-					this.monome.vari_led(x, y, value, this.index);
+					flow_led(x, y, value, this.index);
 				}
 			}
 			// redrawDevice the bottom row
@@ -1196,38 +1199,38 @@ public class Flow implements Page, Serializable {
 			
 		// bottom row redraw in keyboard mode means just update the keyboard mode button
 //		if(this.mode == KEYBOARDMODE) {
-//			this.monome.vari_led(14, this.monome.sizeY-1, (this.mode == KEYBOARDMODE ? 1 : 0)*briOn, this.index);
+//			flow_led(14, this.monome.sizeY-1, (this.mode == KEYBOARDMODE ? 1 : 0)*briOn, this.index);
 //		}
 //		else if(this.mode == MATRIXMODE) {
-//			this.monome.vari_led(13, this.monome.sizeY-1, (this.mode == MATRIXMODE ? 1 : 0)*briOn, this.index);
+//			flow_led(13, this.monome.sizeY-1, (this.mode == MATRIXMODE ? 1 : 0)*briOn, this.index);
 //		}
 		// redrawDevice this way if we're in bank mode
 		if (this.mode == BANKMODE) {
 			for (int x = 0; x < (this.monome.sizeX); x++) {
 				if (x < 4) {
 					if (this.selectedChannel.depth == x) {
-						this.monome.vari_led(x, (this.monome.sizeY - 1), this.briOn, this.index);
+						flow_led(x, (this.monome.sizeY - 1), this.briOn, this.index);
 					} else {
-						this.monome.vari_led(x, (this.monome.sizeY - 1) , 0, this.index);
+						flow_led(x, (this.monome.sizeY - 1) , 0, this.index);
 					}
 				}
 				else if (x == ButtonNoCopy) {
-					this.monome.vari_led(x, (this.monome.sizeY - 1), this.bankCopyMode*this.briOn, this.index);
+					flow_led(x, (this.monome.sizeY - 1), this.bankCopyMode*this.briOn, this.index);
 				}
 				else if (x == ButtonNoClear) {
-					this.monome.vari_led(x, (this.monome.sizeY - 1), this.bankClearMode*this.briOn, this.index);
+					flow_led(x, (this.monome.sizeY - 1), this.bankClearMode*this.briOn, this.index);
 				}
 				else if (x == ButtonNoBank) {
-					this.monome.vari_led(x, (this.monome.sizeY - 1), (this.mode == BANKMODE ? 1 : 0)*this.briOn, this.index);
+					flow_led(x, (this.monome.sizeY - 1), (this.mode == BANKMODE ? 1 : 0)*this.briOn, this.index);
 				}
 				else if (x == ButtonNoMute) {
-					this.monome.vari_led(x, (this.monome.sizeY - 1), this.muteMode*this.briOn, this.index);
+					flow_led(x, (this.monome.sizeY - 1), this.muteMode*this.briOn, this.index);
 				}
 				else if (x == ButtonNoVelocity) {
-					this.monome.vari_led(x, (this.monome.sizeY - 1), this.velocityMode*this.briOn, this.index);
+					flow_led(x, (this.monome.sizeY - 1), this.velocityMode*this.briOn, this.index);
 				}
 				else {
-					this.monome.vari_led(x, (this.monome.sizeY - 1), 0, this.index);
+					flow_led(x, (this.monome.sizeY - 1), 0, this.index);
 				}
 			}
 			// redrawDevice this way if we're not in bank mode (usually sequencer mode)
@@ -1235,36 +1238,36 @@ public class Flow implements Page, Serializable {
 			for (int x = 0; x < (this.monome.sizeX); x++) {
 				if (x < 4) {
 					if (this.pattern == x) {
-						this.monome.vari_led(x, (this.monome.sizeY - 1), this.briOn, this.index);
+						flow_led(x, (this.monome.sizeY - 1), this.briOn, this.index);
 					} else {
-						this.monome.vari_led(x, (this.monome.sizeY - 1), 0, this.index);
+						flow_led(x, (this.monome.sizeY - 1), 0, this.index);
 					}
 				}
 				else if (x == ButtonNoCopy) {
 					if (copyMode == 1) {
-						this.monome.vari_led(x, (this.monome.sizeY - 1), this.briOn, this.index);
+						flow_led(x, (this.monome.sizeY - 1), this.briOn, this.index);
 					} else {
-						this.monome.vari_led(x, (this.monome.sizeY - 1), 0, this.index);
+						flow_led(x, (this.monome.sizeY - 1), 0, this.index);
 					}
 				}
 				else if (x == ButtonNoClear) {
 					if (clearMode == 1) {
-						this.monome.vari_led(x, (this.monome.sizeY - 1), this.briOn, this.index);
+						flow_led(x, (this.monome.sizeY - 1), this.briOn, this.index);
 					} else {
-						this.monome.vari_led(x, (this.monome.sizeY - 1), 0, this.index);
+						flow_led(x, (this.monome.sizeY - 1), 0, this.index);
 					}
 				}
 				else if (x == ButtonNoMute) {
-					this.monome.vari_led(x, (this.monome.sizeY - 1), this.muteMode*this.briOn, this.index);
+					flow_led(x, (this.monome.sizeY - 1), this.muteMode*this.briOn, this.index);
 				}
 				else if (x == ButtonNoVelocity) {
-					this.monome.vari_led(x, (this.monome.sizeY - 1), this.velocityMode*this.briOn, this.index);
+					flow_led(x, (this.monome.sizeY - 1), this.velocityMode*this.briOn, this.index);
 				}
 				else if(x == ButtonNoMatrix) {
-					this.monome.vari_led(x, (this.monome.sizeY - 1), (this.mode == MATRIXMODE ? 1 : 0)*this.briOn, this.index);
+					flow_led(x, (this.monome.sizeY - 1), (this.mode == MATRIXMODE ? 1 : 0)*this.briOn, this.index);
 				}
 				else {
-					this.monome.vari_led(x, (this.monome.sizeY - 1), 0, this.index);
+					flow_led(x, (this.monome.sizeY - 1), 0, this.index);
 				}
 			}
 		}
@@ -1741,7 +1744,7 @@ public class Flow implements Page, Serializable {
 				return;
 			
 			if(value>0)
-				this.monome.vari_led(x, y, value, this.index);
+				flow_led(x, y, value, this.index);
 			else
 				keyboardModeRedrawXYToDefault(x,y);
 		}
@@ -1759,7 +1762,7 @@ public class Flow implements Page, Serializable {
 				if(y == this.monome.sizeY && x > 11)
 					continue;
 				if(value>0)
-					this.monome.vari_led(x, y, value, this.index);
+					flow_led(x, y, value, this.index);
 				else
 					keyboardModeRedrawXYToDefault(x,y);	
 				y++;
@@ -1771,10 +1774,10 @@ public class Flow implements Page, Serializable {
 
 	public void keyboardModeRedrawXYToDefault(int x, int y) {
 		if(keyboardModeXYToNoteNumber(x, y, this.selectedChannel) % selectedChannel.scaleLength == 0) {
-			this.monome.vari_led(x, y, briKeybRoot, this.index);
+			flow_led(x, y, briKeybRoot, this.index);
 		}
 		else {
-			this.monome.vari_led(x, y, briOff, this.index);
+			flow_led(x, y, briOff, this.index);
 		}
 	}
 
@@ -1840,7 +1843,7 @@ public class Flow implements Page, Serializable {
 			// keyboard mode scale data
 			private int rootNoteX = 2; //placement of the root note in keyboard mode
 			private int rootNoteY = 14;
-			private int rowOffset = 7; //in number of notes in scale not semitones!
+			public int rowOffset = 7; //in number of notes in scale not semitones!
 			
 			public int rootNoteMidiNumber = 36; // default is C1
 			public int[] scaleNoteDiffsToRoot = {0,2,4,5,7,9,11,-99,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}; // default is major 
@@ -2000,6 +2003,16 @@ public class Flow implements Page, Serializable {
 			
 		} // end of sequencerchannel class
 	
+	// new function for LED on-off.
+	// for situations when everything runs normally, but part of the monome is beiing used for something else
+	// such as parameter editing
+	public void flow_led(int x, int y, int value, int index) {
+		this.monome.vari_led(x, y, value, index);
+	}
+	
+	public void flow_led_col(ArrayList<Integer> intArgs, int index) {
+		this.monome.vari_led_col(intArgs, index);
+	}
 } // end of class
 
 

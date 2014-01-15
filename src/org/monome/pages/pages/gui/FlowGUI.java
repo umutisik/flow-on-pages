@@ -46,12 +46,13 @@ public class FlowGUI extends JPanel implements Serializable {
 			"Row 7", "Row 8", "Row 9", "Row 10", "Row 11", "Row 12", "Row 13", "Row 14",
 			"Row 15", "Row 16"};
 	
-	private String[] scaleChoices = { "Major", "Minor", "Chromatic" };
+	private String[] scaleChoices = { "Major", "Minor", "Chromatic", "Drums" };
 	// the jump in semitones between notes in the scale, automatically cycles before the -99
 	// the scale is kept in a different format in flow.java, it is converted to it when it is generated here
-	private int[][] scaleJumps = { {2,2,1,2,2,2,1,-99,0,0,0,0,0}, 
-								   {2,1,2,2,1,2,2,-99,0,0,0,0,0}, 
-								   {1,1,1,1,1,1,1,1,1,1,1,1,-99} 
+	private int[][] scaleJumps = { {2,2,1,2,2,2,1,-99,0,0,0,0,0,0,0,0,0}, 
+								   {2,1,2,2,1,2,2,-99,0,0,0,0,0,0,0,0,0}, 
+								   {1,1,1,1,1,1,1,1,1,1,1,1,-99,0,0,0,0},
+								   {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,-99}
 								 }; 
 	public JComboBox quantCB = null;
 	private JLabel quantLBL = null;
@@ -90,6 +91,8 @@ public class FlowGUI extends JPanel implements Serializable {
 		this.add(getNoteTF(), null);
 		this.add(getRowCB(), null);
 		this.add(getChannelCB(), null);
+		this.add(getKeyboardRowOffsetLBL(), null);
+		this.add(getKeyboardRowOffsetCB(), null);
 		this.add(getRowLBL(), null);
 		this.add(getScaleLBL(), null);
 		
@@ -121,6 +124,12 @@ public class FlowGUI extends JPanel implements Serializable {
 			channelCB.addItem(Integer.toString(numma));
 		}
 		
+		for(int i=0; i<17; i++)
+		{
+			keyboardRowOffsetCB.addItem(Integer.toString(i));
+		}
+		keyboardRowOffsetCB.setSelectedIndex(7);
+		
 		setScaleForKeyboardMode();
 	}
 	
@@ -141,6 +150,24 @@ public class FlowGUI extends JPanel implements Serializable {
 		return pageLabel;
 	}
 
+	/**
+	 * This method initializes rowCB	
+	 * 	
+	 * @return javax.swing.JComboBox	
+	 */
+	private JComboBox getKeyboardRowOffsetCB() {
+		if (keyboardRowOffsetCB == null) {
+			keyboardRowOffsetCB = new JComboBox();
+			keyboardRowOffsetCB.setBounds(new Rectangle(400, 80, 71, 23));
+			keyboardRowOffsetCB.addActionListener(new java.awt.event.ActionListener() {
+				public void actionPerformed(java.awt.event.ActionEvent e) {
+					page.channels[channelCB.getSelectedIndex()].rowOffset = keyboardRowOffsetCB.getSelectedIndex(); 
+				}
+			});
+		}
+		return keyboardRowOffsetCB;
+	}
+	
 	/**
 	 * This method initializes rowCB	
 	 * 	
@@ -206,6 +233,18 @@ public class FlowGUI extends JPanel implements Serializable {
 		return channelLBL;
 	}
 
+	
+	
+	private JLabel getKeyboardRowOffsetLBL() {
+		if(keyboardRowOffsetLBL == null) {
+			keyboardRowOffsetLBL = new JLabel();
+			keyboardRowOffsetLBL.setText("Keyb Row Offset:");
+			keyboardRowOffsetLBL.setBounds(new Rectangle(300, 80, 71, 21));
+			keyboardRowOffsetLBL.setHorizontalAlignment(SwingConstants.RIGHT);
+		}
+		return keyboardRowOffsetLBL;
+	}
+	
 	/*
 	 * This initializez scaleLBL
 	 * 
@@ -335,6 +374,7 @@ public class FlowGUI extends JPanel implements Serializable {
 		return saveBtn;
 	}
 
+
 	/**
 	 * 
 	 *   This method initializes the generateScale button
@@ -372,6 +412,8 @@ public class FlowGUI extends JPanel implements Serializable {
 					// update the selected row's value in the text field
 					String noteVal = page.numberToMidiNote(page.channels[guiSelectedChannelIndex].noteNumbers[rowCB.getSelectedIndex()]);
 					noteTF.setText(noteVal);
+					
+					page.redrawDevice();
 				}
 			});
 		}
