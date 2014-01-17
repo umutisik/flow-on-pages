@@ -6,6 +6,7 @@
   <property name="filename" value="${ant.project.name}-${pages.version}"/>
   <property name="dist" value="./dist"/>
   <property name="release" value="${dist}/${filename}"/>
+  
   <path id="classpath">
     <fileset dir="${lib.dir}" includes="**/*.jar"/>
   </path>
@@ -62,7 +63,7 @@
       <fileset dir="." includes="README.md"/>
       <globmapper from="README.md" to="README.txt"/>
     </copy>
-    <zip destfile="${dist}/${filename}.zip" basedir="${dist}"/>
+    <zip destfile="${dist}/${filename}.zip" basedir="${dist}" excludes="${dist}/${filename}.zip"></zip>
   </target>
   <target name="run" depends="package">
     <java jar="build/jar/pages.jar" fork="true"/>
