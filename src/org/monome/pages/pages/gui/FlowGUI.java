@@ -354,10 +354,10 @@ public class FlowGUI extends JPanel implements Serializable {
 					try {
 						int bankSize = Integer.parseInt(bankSizeTF.getText());
 						if (bankSize < 1 || bankSize > 64) {
-							bankSizeTF.setText(""+page.selectedChannel.bankSize);
+							bankSizeTF.setText("00");
 							return;
 						}
-						page.setBankSize(bankSize);
+						//page.setBankSize(bankSize);
 						int midiChannel = Integer.parseInt(channelTF.getText());
 						if (midiChannel < 1 || midiChannel > 16) {
 							bankSizeTF.setText(Integer.toString(page.selectedChannel.midiChannel));
@@ -365,7 +365,7 @@ public class FlowGUI extends JPanel implements Serializable {
 						}
 						page.setMidiChannel(channelTF.getText());
 					} catch (NumberFormatException ex) {
-						bankSizeTF.setText(""+page.selectedChannel.bankSize);
+						bankSizeTF.setText("00");
 						return;
 					}
 				}
