@@ -206,7 +206,7 @@ public class Flow implements Page, Serializable {
 
     private Dimension origGuiDimension;
 
-    // brighness settins for different situations
+    // brightness settings for different situations
     // sequenced notes
     private int briSeqNote = 12;
     private int briSeqOtherChannelNote = 6;

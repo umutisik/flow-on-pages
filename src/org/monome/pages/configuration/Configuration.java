@@ -634,6 +634,7 @@ public class Configuration implements Serializable {
 	 */
 	public void send(MidiDevice device, MidiMessage message, long lTimeStamp) {
 		ShortMessage shortMessage;
+		
 		// pass all messages along to all monomes (who pass to all pages)
 		for (int i = 0; i < MonomeConfigurationFactory.getNumMonomeConfigurations(); i++) {
 			MonomeConfiguration monomeConfig = MonomeConfigurationFactory.getMonomeConfiguration(i);
@@ -651,6 +652,7 @@ public class Configuration implements Serializable {
 		// filter for midi clock ticks or midi reset messages
 		if (message instanceof ShortMessage) {
 			shortMessage = (ShortMessage) message;
+			
 			switch (shortMessage.getCommand()) {
 			case 0xF0:
 				if (shortMessage.getChannel() == 8) {
@@ -667,7 +669,8 @@ public class Configuration implements Serializable {
 			            }
 			        }
 				}
-				if (shortMessage.getChannel() == 0x0C) {
+				// reset is also needed for start message. UI
+				if (shortMessage.getChannel() == 0x0C || shortMessage.getChannel() == 11 || shortMessage.getChannel()==10) {
 					for (int i=0; i < MonomeConfigurationFactory.getNumMonomeConfigurations(); i++) {
 						MonomeConfiguration monomeConfig = MonomeConfigurationFactory.getMonomeConfiguration(i);
 						if (monomeConfig != null) {
