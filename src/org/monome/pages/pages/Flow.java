@@ -76,13 +76,12 @@ public class Flow implements Page, Serializable {
 	public int ButtonNoBank = 12;
 	public int ButtonNoKeyboard = 14;
 	public int ButtonNoMatrix = 13;
-	public int LastModeButton = 12; // this is used in keyboard more to tell which buttons not to play notes for
+	public int LastModeButton = 12; // this is used in keyboard more to tell after which buttons the presses should not play
 	
 	public int ButtonNoPattern = 0; // does not work in keyboard mode, pattern mode.
 	
 	public int ButtonNoVelocity = 10;
 	public int ButtonNoMute = 11;
-	public int ButtonNoCopy = 4;
 	public int ButtonNoClear = 5;
 	// 0
 	
@@ -116,6 +115,13 @@ public class Flow implements Page, Serializable {
 	
 	
 /****************** end matrix mode vars   ***************/	
+	
+/************* bank mode vars *******************/
+	private boolean bankCopyModeOn = false;
+	private int bankCopyModeWhatChannel = 0;
+	private int bankCopyModeWhatBank = 0;
+	private boolean bankCopyModeAlreadyCopiedAtLeastOnce = false;
+	
 	
 /**** midi note off scheduling *****/
 	
@@ -166,25 +172,10 @@ public class Flow implements Page, Serializable {
 	private int bankClearMode = 0;
 
 	/**
-	 * 1 = bank copy mode enabled 
-	 */
-	private int bankCopyMode = 0;
-
-	/**
 	 * Currently selected channel number
 	 */
 	private int selectedChannelNumber = 0;
 	
-
-	/**
-	 * 1 = pattern copy mode enabled
-	 */
-	private int copyMode = 0;
-
-	/**
-	 * 1 = pattern clear mode enabled
-	 */
-	private int clearMode = 0;
 	
 	public int quantization = 6;
 
@@ -252,6 +243,7 @@ public class Flow implements Page, Serializable {
     
     private boolean patternModeCopyOn = false;
     private int patternModeCopyWhat = 0;
+    private boolean patternModeAlreadyCopiedAtLeastOnce = false;
     
     private void patternModeRedraw() {
     	if(this.topLayerMode != TopLayerPatternMode)
@@ -329,19 +321,22 @@ public class Flow implements Page, Serializable {
     		} else if(y == 2) {
     			if(patternModeCopyOn) 	{ // a key is already pressed and not released
     				selectedChannel.copyPattern(patternModeCopyWhat, x);
-    				patternModeCopyOn = false;
+    				patternModeAlreadyCopiedAtLeastOnce = true;
     			} else {
     				patternModeCopyOn = true;
+    				patternModeAlreadyCopiedAtLeastOnce = false;
     				patternModeCopyWhat = x;
     			}
     			redrawDevice();
     		}
     	}
     	else { // button released
-    		if(patternModeCopyOn && patternModeCopyWhat == x)
-    			selectedChannel.patternsSelected[selectedChannel.selectedBank] = x;
-    		patternModeCopyOn = false;
-    		redrawDevice();
+    		if(patternModeCopyOn && patternModeCopyWhat == x) {
+    			if(patternModeAlreadyCopiedAtLeastOnce == false)
+    				selectedChannel.patternsSelected[selectedChannel.selectedBank] = x;
+    			patternModeCopyOn = false;
+    			redrawDevice();
+    		}
     	}
     	System.out.print("a");
     	
@@ -502,13 +497,14 @@ public class Flow implements Page, Serializable {
 			}
 			return;	    
 		}
-		else if (this.mode == BANKMODE) {
-			// only on press events
-			if (value == 1) {
-				if (this.blinkThread != null) {
-					this.blinkThread.cancel();
-				}
-				if (y == (this.monome.sizeY - 1)) {
+		else if (this.mode == BANKMODE) { //handle press in bank mode
+
+			if (value == 1 && this.blinkThread != null) {
+				this.blinkThread.cancel();
+			}
+			
+			if(y == (this.monome.sizeY - 1)) {
+				if (value == 1) {
 					if (x < 2) { // depth setting for 64 or 128
 						if (this.monome.sizeY == 8) {
 							selectedChannel.depth = x;
@@ -523,17 +519,8 @@ public class Flow implements Page, Serializable {
 						this.stopNotes();
 						this.alterSequencerPattern();
 					}
-					if (x == ButtonNoCopy && this.bankClearMode == 0) {
-						if (this.bankCopyMode == 1) {
-							this.bankCopyMode = 0;
-							flow_led(x, this.monome.sizeY-1, this.briOff, this.index);
-						} else {
-							this.bankCopyMode = 1;
-							flow_led(x, this.monome.sizeY-1, this.briOn, this.index);
-						}
-					}
-					
-					if (x == ButtonNoClear && this.bankCopyMode == 0) {
+
+					if (x == ButtonNoClear) {
 						if (this.bankClearMode == 1) {
 							this.bankClearMode = 0;
 							flow_led(x, this.monome.sizeY-1, this.briOff, this.index);
@@ -543,7 +530,7 @@ public class Flow implements Page, Serializable {
 						}
 					}
 
-					if (x == ButtonNoMute && this.copyMode == 0 && this.clearMode == 0) {
+					if (x == ButtonNoMute) {
 						if (this.muteMode == 0) {
 							this.muteMode = 1;
 						} else {
@@ -551,34 +538,43 @@ public class Flow implements Page, Serializable {
 						}
 						this.redrawDevice();
 					}
-
-//					if (x == ButtonNoCopy && this.copyMode == 0 && this.clearMode == 0) {
-//						selectedChannel.clearBank(y);
-//						this.redrawDevice();
-//					}
-				} else { // in bank mode but not bottom row. i.e. a bank button is pressed
-					if (this.bankCopyMode == 1) {
-						this.bankCopyMode = 0;
-						this.copyBank(selectedChannelNumber, selectedChannel.selectedBank, x, y);
-						this.redrawDevice();
-					} else if (bankClearMode == 1) {
-						this.bankClearMode = 0;
-						channels[x].clearBank(y);
-						if (channels[x].playingBank == y) {
-							channels[x].playingBank = 17;
-						}
-						this.redrawDevice();
-					} else {
-						channels[x].scheduledChangeAtEndOfBarExists = true;
-						channels[x].scheduledChangeBank = y;
-						channels[x].selectedBank = y;
-						this.selectedChannelNumber = x;
-						this.selectedChannel = this.channels[this.selectedChannelNumber];
-						//this.stopNotes();
-						this.redrawDevice();
+				}
+			} else { // in bank mode but not bottom row. i.e. a bank button is pressed or released
+				if (value == 1 && bankClearMode == 1) {
+					this.bankClearMode = 0;
+					channels[x].clearBank(y);
+					if (channels[x].playingBank == y) {
+						channels[x].playingBank = 17;
 					}
+					this.redrawDevice();
+				} else {
+					if(value == 1) {
+						if(bankCopyModeOn == false) {
+							bankCopyModeOn = true;
+							bankCopyModeAlreadyCopiedAtLeastOnce = false;
+							bankCopyModeWhatChannel = x;
+							bankCopyModeWhatBank = y;
+						} else {
+							copyBank(bankCopyModeWhatChannel, bankCopyModeWhatBank, x, y);
+							bankCopyModeAlreadyCopiedAtLeastOnce = true;
+						}
+					}
+					else { //value==0
+						if(x == bankCopyModeWhatChannel && y == bankCopyModeWhatBank) {
+							if(bankCopyModeAlreadyCopiedAtLeastOnce == false) {
+								channels[x].scheduledChangeAtEndOfBarExists = true;
+								channels[x].scheduledChangeBank = y;
+								channels[x].selectedBank = y;
+								this.selectedChannelNumber = x;
+								this.selectedChannel = this.channels[this.selectedChannelNumber];
+							}
+							bankCopyModeOn = false;
+							this.redrawDevice();
+						}
+					}					
 				}
 			}
+			
 //			else { // bank mode release events
 //				
 //			}
@@ -593,44 +589,6 @@ public class Flow implements Page, Serializable {
 						selectedChannel.newNoteLength--;
 					}
 					
-//					// pattern select
-//					if (x < 4) {
-//						if (this.copyMode == 1) {
-//							this.copyMode = 0;
-//							this.selectedChannel.copyPattern(this.pattern, x);
-//						}
-//						if (this.clearMode == 1) {
-//							this.clearMode = 0;
-//							if (x == this.pattern) {
-//								this.stopNotes();
-//							}
-//							this.selectedChannel.clearPattern(x);
-//						}
-//						this.pattern = x;
-//						this.redrawDevice();
-//					}
-					
-					// copy mode
-					if (x == ButtonNoCopy && this.clearMode == 0 && this.mode != BANKMODE) {
-						if (this.copyMode == 1) {
-							this.copyMode = 0;
-							flow_led(x, (this.monome.sizeY - 1), this.briOff, this.index);
-						} else {
-							this.copyMode = 1;
-							flow_led(x, (this.monome.sizeY - 1), this.briOn, this.index);
-						}
-					}
-					// clear mode
-					if (x == ButtonNoClear && this.copyMode == 0 && this.mode != BANKMODE) {
-						if (this.clearMode == 1) {
-							this.clearMode = 0;
-							flow_led(x, (this.monome.sizeY - 1), this.briOff, this.index);
-						} else {
-							this.clearMode = 1;
-							flow_led(x, (this.monome.sizeY - 1), this.briOn, this.index);
-						}
-					}
-
 					if (x == ButtonNoMute) {
 						if (this.muteMode == 0) {
 							this.muteMode = 1;
@@ -818,6 +776,8 @@ public class Flow implements Page, Serializable {
 						loopChan.scheduledChangeAtEndOfBarExists = false;
 						loopChan.playingBank = loopChan.scheduledChangeBank;
 						loopChan.sequencePosition = loopChan.sequencePosition = loopChan.patternsStarting[loopChan.playingBank]*this.monome.sizeX;
+						if(this.mode == BANKMODE)
+							this.redrawDevice();
 					}
 					else {
 						// loopings
@@ -1010,13 +970,7 @@ public class Flow implements Page, Serializable {
 //			if (col == this.pattern) {
 //				flow_led(col, (this.monome.sizeY - 1), briOn, this.index);
 //			}
-			if (col == ButtonNoCopy && this.copyMode == 1) {
-				flow_led(col, (this.monome.sizeY - 1), briOn, this.index);
-			}
-			else if (col == ButtonNoClear && this.clearMode == 1) {
-				flow_led(col, (this.monome.sizeY - 1), briOn, this.index);
-			}
-			else if (col == ButtonNoBank && this.mode == BANKMODE) {
+			if (col == ButtonNoBank && this.mode == BANKMODE) {
 				flow_led(col, (this.monome.sizeY - 1), briOn, this.index);
 			}
 			else if (col == ButtonNoKeyboard && this.mode == KEYBOARDMODE) {
@@ -1041,37 +995,37 @@ public class Flow implements Page, Serializable {
 	}
 	
 	public void stopNotes() {
-		ShortMessage note_out = new ShortMessage();
-		for(int ci = 0; ci<NUMBER_OF_CHANNELS; ci++)
-		{
-			SequencerChannel loopChan = channels[ci];
-			loopChan.sequencePosition = 0;
-			for (int i=0; i < 16; i++) {
-				if (loopChan.heldNotes[i] == 1) {
-					loopChan.heldNotes[i] = 0;
-					int note_num = loopChan.getNoteNumber(i);
-					try {
-						note_out.setMessage(ShortMessage.NOTE_OFF, loopChan.midiChannel, note_num, 0);
-						String[] midiOutOptions = monome.getMidiOutOptions(this.index);
-						for (int j = 0; j < midiOutOptions.length; j++) {
-							if (midiOutOptions[j] == null) {
-								continue;
-							}
-							Receiver recv = monome.getMidiReceiver(midiOutOptions[j]);
-							if (recv != null) {
-								recv.send(note_out, MidiDeviceFactory.getDevice(recv).getMicrosecondPosition());
-							}
-						}
-					} catch (InvalidMidiDataException e) {
-						e.printStackTrace();
-					}				
-				}
-			}
-		}
+//		ShortMessage note_out = new ShortMessage();
+//		for(int ci = 0; ci<NUMBER_OF_CHANNELS; ci++)
+//		{
+//			SequencerChannel loopChan = channels[ci];
+//			loopChan.sequencePosition = 0;
+//			for (int i=0; i < 16; i++) {
+//				if (loopChan.heldNotes[i] == 1) {
+//					loopChan.heldNotes[i] = 0;
+//					int note_num = loopChan.getNoteNumber(i);
+//					try {
+//						note_out.setMessage(ShortMessage.NOTE_OFF, loopChan.midiChannel, note_num, 0);
+//						String[] midiOutOptions = monome.getMidiOutOptions(this.index);
+//						for (int j = 0; j < midiOutOptions.length; j++) {
+//							if (midiOutOptions[j] == null) {
+//								continue;
+//							}
+//							Receiver recv = monome.getMidiReceiver(midiOutOptions[j]);
+//							if (recv != null) {
+//								recv.send(note_out, MidiDeviceFactory.getDevice(recv).getMicrosecondPosition());
+//							}
+//						}
+//					} catch (InvalidMidiDataException e) {
+//						e.printStackTrace();
+//					}				
+//				}
+//			}
+//		}
 		
-		for(int i=0; i < MAX_LEN_OF_MIDI_SCHEDULER; i++)
-			midiNoteOffSchedule[i].clear();
-		midiSchedulerPosition = 0;
+//		for(int i=0; i < MAX_LEN_OF_MIDI_SCHEDULER; i++)
+//			midiNoteOffSchedule[i].clear();
+//		midiSchedulerPosition = 0;
 	}
 
 	/**
@@ -1146,7 +1100,8 @@ public class Flow implements Page, Serializable {
 	}
 	
 	public void lightUpNotesOnKeyboard(SequencerChannel chan, int seq_pos, int value) {
-		if (muteMode == 1 || !chan.showInKeyboardMode) {
+		
+		if (muteMode == 1 || !chan.showInKeyboardMode || chan.isDrums) {
 			return;
 		}
 		
@@ -1332,16 +1287,16 @@ public class Flow implements Page, Serializable {
 					else if(curChannel.playingBank == y) {
 						flow_led(x, y, this.briBankPlaying, this.index);
 					} else {
-						search:
-							for (int seqX = 0; seqX < SequencerChannel.MAX_SEQUENCE_LENGTH; seqX++) {
-								for (int seqY = 0; seqY < 16; seqY++) {
-									if (channels[x].sequence[curBank][seqX][seqY] > 0) {
-										bankData = true;
-										break search;
-									} 
-								}
-							}
-						
+//						search:
+//							for (int seqX = 0; seqX < SequencerChannel.MAX_SEQUENCE_LENGTH; seqX++) {
+//								for (int seqY = 0; seqY < 16; seqY++) {
+//									if (channels[x].sequence[curBank][seqX][seqY] > 0) {
+//										bankData = true;
+//										break search;
+//									} 
+//								}
+//							}
+//						
 						if (bankData) {
 							flow_led(x, y, this.briBankNonEmpty, this.index);
 						} else {
@@ -1398,9 +1353,6 @@ public class Flow implements Page, Serializable {
 						flow_led(x, (this.monome.sizeY - 1) , 0, this.index);
 					}
 				}
-				else if (x == ButtonNoCopy) {
-					flow_led(x, (this.monome.sizeY - 1), this.bankCopyMode*this.briOn, this.index);
-				}
 				else if (x == ButtonNoClear) {
 					flow_led(x, (this.monome.sizeY - 1), this.bankClearMode*this.briOn, this.index);
 				}
@@ -1432,20 +1384,6 @@ public class Flow implements Page, Serializable {
 						flow_led(x, (this.monome.sizeY - 1), this.briOn, this.index);
 					else 
 						flow_led(x, (this.monome.sizeY - 1), 0, this.index);
-				}
-				else if (x == ButtonNoCopy) {
-					if (copyMode == 1) {
-						flow_led(x, (this.monome.sizeY - 1), this.briOn, this.index);
-					} else {
-						flow_led(x, (this.monome.sizeY - 1), 0, this.index);
-					}
-				}
-				else if (x == ButtonNoClear) {
-					if (clearMode == 1) {
-						flow_led(x, (this.monome.sizeY - 1), this.briOn, this.index);
-					} else {
-						flow_led(x, (this.monome.sizeY - 1), 0, this.index);
-					}
 				}
 				else if (x == ButtonNoMute) {
 					flow_led(x, (this.monome.sizeY - 1), this.muteMode*this.briOn, this.index);
@@ -1999,6 +1937,13 @@ public class Flow implements Page, Serializable {
 			
 			private MonomeConfiguration monome;
 			private int index;
+			
+			
+			public boolean isDrums = false;
+// these are to save the gui info for reloading
+//			public int selectedScaleIndex;
+//			public int guiSelectedChannelIndex;
+//			public String rootNoteText;
 			
 			/**
 			 * selectedChannel.sequence[bank_number][width][height] - the currently programmed sequences 

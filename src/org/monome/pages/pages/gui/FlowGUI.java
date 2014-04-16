@@ -389,6 +389,7 @@ public class FlowGUI extends JPanel implements Serializable {
 			generateScaleBtn.addActionListener(new java.awt.event.ActionListener() {
 				public void actionPerformed(java.awt.event.ActionEvent e) {
 					
+					
 					// start with the first row and set it to the root 
 					// and for 15 more rows, set the note number according to the scale selected
 					int selectedScaleIndex = scaleCB.getSelectedIndex();
@@ -406,6 +407,11 @@ public class FlowGUI extends JPanel implements Serializable {
 							scaleIndex=0;
 					};
 				    
+					// is drums? (notes don't light up for drums in keyboard mode)
+					if(selectedScaleIndex == 3) {
+						page.channels[guiSelectedChannelIndex].isDrums = true;
+					}
+					
 					// set the scale for the keyboard mode
 					setScaleForKeyboardMode();
 					
