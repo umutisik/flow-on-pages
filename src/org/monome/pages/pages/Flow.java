@@ -250,6 +250,9 @@ public class Flow implements Page, Serializable {
     private int patternModeYStart = 12;
     private int patternModeYEnd = 16; // one more than the actual ending
     
+    private boolean patternModeCopyOn = false;
+    private int patternModeCopyWhat = 0;
+    
     private void patternModeRedraw() {
     	if(this.topLayerMode != TopLayerPatternMode)
     		return;
@@ -312,7 +315,6 @@ public class Flow implements Page, Serializable {
     		if(y == 0) {
     			// set the new starting position and schedule a reset at end of bar
     			selectedChannel.patternsStarting[selectedChannel.selectedBank] = x;
-    			//asdf
     			selectedChannel.scheduledChangeAtEndOfBarExists = true;
     			selectedChannel.scheduledChangeBank = selectedChannel.selectedBank;
     			patternModeRedraw();
@@ -325,10 +327,21 @@ public class Flow implements Page, Serializable {
     			selectedChannel.patternsEnding[selectedChannel.selectedBank] = x + 1;
     			patternModeRedraw();
     		} else if(y == 2) {
-    			selectedChannel.patternsSelected[selectedChannel.selectedBank] = x;
+    			if(patternModeCopyOn) 	{ // a key is already pressed and not released
+    				selectedChannel.copyPattern(patternModeCopyWhat, x);
+    				patternModeCopyOn = false;
+    			} else {
+    				patternModeCopyOn = true;
+    				patternModeCopyWhat = x;
+    			}
     			redrawDevice();
     		}
-    		
+    	}
+    	else { // button released
+    		if(patternModeCopyOn && patternModeCopyWhat == x)
+    			selectedChannel.patternsSelected[selectedChannel.selectedBank] = x;
+    		patternModeCopyOn = false;
+    		redrawDevice();
     	}
     	System.out.print("a");
     	
@@ -2136,17 +2149,22 @@ public class Flow implements Page, Serializable {
 			/**
 			 * Copies src pattern to dst pattern.
 			 * 
-			 * @param src The source pattern to copy (0-3)
-			 * @param dst The destination to copy the source pattern to (0-3)
+			 * @param src The source pattern to copy (0-15)
+			 * @param dst The destination to copy the source pattern to (0-15)
+			 * these move multiples of monome.sizeX (assumed = 16)
 			 */
 			private void copyPattern(int src, int dst) {
-				for (int x = 0; x < (this.monome.sizeX); x++) {
-					for (int y = 0; y < 15; y++) {
+
+				for (int y = 0; y < 15; y++) {
+					for (int x = 0; x < (this.monome.sizeX); x++) {
 						int x_src = x + (src * (this.monome.sizeX));
 						int x_dst = x + (dst * (this.monome.sizeX));
 						sequence[selectedBank][x_dst][y] = sequence[selectedBank][x_src][y];
+						seqNoteLengths[selectedBank][x_dst][y] = seqNoteLengths[selectedBank][x_src][y];
 					}
+					reGenerateNoteLengthArrayRow(selectedBank, y, dst * (this.monome.sizeX), ((dst+1) * (this.monome.sizeX)));
 				}
+				
 			}
 
 			
