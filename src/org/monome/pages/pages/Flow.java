@@ -928,7 +928,7 @@ public class Flow implements Page, Serializable {
 		for(int ci = 0; ci<NUMBER_OF_CHANNELS; ci++)
 		{
 			SequencerChannel loopChan = channels[ci];
-				loopChan.sequencePosition = 0;
+				loopChan.sequencePosition = 16*loopChan.patternsSelected[loopChan.selectedBank];
 		}
 		this.redrawDevice();
 	}
