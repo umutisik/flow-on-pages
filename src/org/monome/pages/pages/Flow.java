@@ -73,17 +73,19 @@ public class Flow implements Page, Serializable {
 	public int DEFAULTMODE = 0;
 	
 	// mode button x's (bottom row)
-	public int ButtonNoBank = 12;
+	public int ButtonNoBank = 13;
 	public int ButtonNoKeyboard = 14;
-	public int ButtonNoMatrix = 13;
+	public int ButtonNoMatrix = 12;
 	public int LastModeButton = 12; // this is used in keyboard more to tell after which buttons the presses should not play
 	
 	public int ButtonNoPattern = 0; // does not work in keyboard mode, pattern mode.
 	
-	public int ButtonNoVelocity = 10;
-	public int ButtonNoMute = 11;
+	public int ButtonNoVelocity = 11;
+	public int ButtonNoMute = 10;
 	public int ButtonNoClear = 5;
 	// 0
+	
+	
 	
 	/**
 	 * The current MIDI clock tick number (from 0 to 6)
@@ -102,6 +104,12 @@ public class Flow implements Page, Serializable {
 	 * Number to transpose the keyboard by
 	 */
 	private int transpose = 0;
+	
+
+	public boolean keyboardRecordMode = false;
+	public boolean quantizeToNextStepWhenRecording = false; //updated all the time to tell us where to quantize to
+	
+
 	
 	
 
@@ -234,8 +242,11 @@ public class Flow implements Page, Serializable {
     // if the top layer is active, it doesn't draw things in the top level
     public static final int TopLayerInactive = 0;
     public static final int TopLayerPatternMode = 1; // a pattern is a sequence of 16
+    public static final int TopLayerVelocityNoteLengthAndCCMode = 2; // this is for the velocities of individual notes
+    
     private int topLayerMode = 0;
     //private int[][] patternModeLeds = new int[16][3];
+    
     private int patternModeXStart = 0;
     private int patternModeXEnd = 16; // one more than the actual ending
     private int patternModeYStart = 12;
@@ -296,8 +307,8 @@ public class Flow implements Page, Serializable {
 		
     	this.monome.vari_led(ButtonNoPattern, this.monome.sizeY-1, briOn, this.index);
     	
-    	debugCount++;
-		System.out.println("redraw" + debugCount);
+    	//debugCount++;
+		//System.out.println("redraw" + debugCount);
 		
     }
     
@@ -338,7 +349,7 @@ public class Flow implements Page, Serializable {
     			redrawDevice();
     		}
     	}
-    	System.out.print("a");
+    	//System.out.print("a");
     	
     }
     
@@ -346,8 +357,91 @@ public class Flow implements Page, Serializable {
     	monome.vari_led(patternModeXStart+x, patternModeYStart+y, bri, this.index);
     }
     
+    ////////// top layer velocityity, note length and CC mode
+    private int velocityModeXStart = 14;
+    private int velocityModeYStart = 0;
+    private int velocityModeWidth = 2;
+    private int velocityModeHeight = 16;
+    private int velocityModeMoveLeftToPreventOverlap = 0;
+    private boolean velocityModeSomethingWasChanged = false;
+    private boolean velocityModeNoteWasJustCreated = false;
     
+    private int velocityModeXofNoteSelected, velocityModeYofNoteSelected;
+    
+    private void velocityModeInit(int x,int y, boolean newnote) {
+    	
+    	// not available if velocitymode is disabled
+    	if(this.velocityMode == 0)
+    		return;
+    	
+    	if(x>15-velocityModeWidth)
+    		velocityModeMoveLeftToPreventOverlap =  (16-x); 
+    	
+    	topLayerMode = TopLayerVelocityNoteLengthAndCCMode;
+    	velocityModeXofNoteSelected = x;
+    	velocityModeYofNoteSelected = y;
+    	velocityModeNoteWasJustCreated = newnote; 
+    	velocityModeSomethingWasChanged = false;
+    }
+    
+    private void velocityModeExity() {
+    	topLayerMode = TopLayerInactive;
+    	velocityModeMoveLeftToPreventOverlap = 0;
+    }
+    
+    private void velocityModeRedraw() {
+    	if(this.topLayerMode != TopLayerVelocityNoteLengthAndCCMode)
+    		return;
+    	int x,y, aX, aY;
+    	
+    	for(x=0;x<velocityModeWidth;x++)
+    		for(y=0;y<velocityModeHeight;y++)
+    			velocityModeLed(x,y,briBackground);
+    	
+    	x=0;
+    	int nl = selectedChannel.seqNoteLengths[selectedChannel.selectedBank][getSelectedPatternNumber()*16+velocityModeXofNoteSelected][velocityModeYofNoteSelected];
+    	//System.out.println(nl);
+    	for(y=0;y<16;y++) {
+    		if(16-y<=nl) 
+    			velocityModeLed(x,y,briSeqNote);
+    	}
+    	
+    	x=1;
+    	int vl = selectedChannel.sequence[selectedChannel.selectedBank][getSelectedPatternNumber()*16+velocityModeXofNoteSelected][velocityModeYofNoteSelected];
+    	vl = 15 - ((vl-7)/8);
+    	
+    	System.out.println(vl);
+    	for(y=0;y<16;y++) {
+    		if(y>=vl) 
+    			velocityModeLed(x,y,briSeqNote);
+    	}
+    	
+    }
+    
+    private void velocityModeHandlePress(int x, int y, int value) {
+    	if(x < 0 || x >= velocityModeWidth || y<0 || y>=velocityModeHeight)
+    		return;
+    	System.out.println(x + " " + y);
+    	if(x == 0 && value == 1) {
+    		selectedChannel.seqNoteLengths[selectedChannel.selectedBank][getSelectedPatternNumber()*16+velocityModeXofNoteSelected][velocityModeYofNoteSelected] = 16-y;
+    		selectedChannel.reGenerateNoteLengthArrayRow(selectedChannel.selectedBank, velocityModeYofNoteSelected, getSelectedPatternNumber()*16+velocityModeXofNoteSelected, getSelectedPatternNumber()*16 + 16);
+    		velocityModeSomethingWasChanged = true;
+    		redrawDevice();
+    	}
+    	if(x == 1 && value == 1) {
+    		selectedChannel.sequence[selectedChannel.selectedBank][getSelectedPatternNumber()*16+velocityModeXofNoteSelected][velocityModeYofNoteSelected] = 7 + (15-y)*8;;
+    		velocityModeSomethingWasChanged = true;
+    		redrawDevice();
+    	}
+        	
+    	
+    }
 
+    private void velocityModeLed(int x, int y, int bri) {
+    	monome.vari_led(velocityModeXStart - velocityModeMoveLeftToPreventOverlap + x, velocityModeYStart+y, bri, this.index);
+    }
+
+    
     //////////////////////////////////////////////////////////////////////////////////
     
 	/**
@@ -428,13 +522,29 @@ public class Flow implements Page, Serializable {
 				return;
 			}
 
+			if(topLayerMode == TopLayerVelocityNoteLengthAndCCMode) {
+				//things that happen in velocity editing
+				velocityModeHandlePress(x-velocityModeXStart+velocityModeMoveLeftToPreventOverlap, y-velocityModeYStart, value);
+				if(!(x < velocityModeXStart - velocityModeMoveLeftToPreventOverlap 
+						|| x >= velocityModeXStart - velocityModeMoveLeftToPreventOverlap + velocityModeWidth 
+						|| y < velocityModeYStart || y >= velocityModeYStart + velocityModeHeight) || y == this.monome.sizeY-1) { 
+					return;
+				}   
+				//if(x != velocityModeXofNoteSelected || y!=velocityModeYofNoteSelected || value!=0) 
+				//	return;
+			}
+			
 			// pattern mode button was just pressed
 			if(y == (this.monome.sizeY-1) && x == this.ButtonNoPattern) {
 				if(topLayerMode == 0) {
 					topLayerMode = TopLayerPatternMode;
 					redrawDevice();
+					return;
 				}
 			}
+			
+			
+			
 		} // end of top layer
 		
 		// mode changes
@@ -470,7 +580,21 @@ public class Flow implements Page, Serializable {
 
 		// handle press or release events in keyboard mode
 		if(this.mode == KEYBOARDMODE) {
-			
+			if(x==0 && y==0) {
+				if(value==1) {
+					if(!keyboardRecordMode) {
+
+						keyboardRecordMode = true;
+						flow_led(0,0,briNoteOn,this.index);
+					} else {
+						keyboardRecordMode = false;
+						// any notes still being held at this point will not be recorded.
+						flow_led(0,0,briOff,this.index);
+					}
+				}
+				return;
+			}
+				
 			if (y != (this.monome.sizeY - 1) || x < LastModeButton) { //if page change or keyboard mode button aren't the ones pressed
 				int velocity = value * 127;
 				int channel = 1;
@@ -550,17 +674,19 @@ public class Flow implements Page, Serializable {
 				} else {
 					if(value == 1) {
 						if(bankCopyModeOn == false) {
-							bankCopyModeOn = true;
+							bankCopyModeOn = true; //any button press triggers this!
 							bankCopyModeAlreadyCopiedAtLeastOnce = false;
 							bankCopyModeWhatChannel = x;
 							bankCopyModeWhatBank = y;
 						} else {
-							copyBank(bankCopyModeWhatChannel, bankCopyModeWhatBank, x, y);
-							bankCopyModeAlreadyCopiedAtLeastOnce = true;
+							if(bankCopyModeWhatChannel ==  x) { //copy only in same channel
+								copyBank(bankCopyModeWhatChannel, bankCopyModeWhatBank, x, y);
+								bankCopyModeAlreadyCopiedAtLeastOnce = true;
+							}
 						}
 					}
 					else { //value==0
-						if(x == bankCopyModeWhatChannel && y == bankCopyModeWhatBank) {
+						
 							if(bankCopyModeAlreadyCopiedAtLeastOnce == false) {
 								channels[x].scheduledChangeAtEndOfBarExists = true;
 								channels[x].scheduledChangeBank = y;
@@ -568,9 +694,10 @@ public class Flow implements Page, Serializable {
 								this.selectedChannelNumber = x;
 								this.selectedChannel = this.channels[this.selectedChannelNumber];
 							}
-							bankCopyModeOn = false;
 							this.redrawDevice();
-						}
+							if(x == bankCopyModeWhatChannel && y == bankCopyModeWhatBank) {
+								bankCopyModeOn = false;	
+							}
 					}					
 				}
 			}
@@ -614,9 +741,9 @@ public class Flow implements Page, Serializable {
 					if (selectedChannel.sequence[selectedChannel.selectedBank][x_seq][y_seq] == 0) {
 						// add the note to the sequencer
 						if (this.velocityMode == 1) {
-							selectedChannel.sequence[selectedChannel.selectedBank][x_seq][y_seq] = 1;
+							selectedChannel.sequence[selectedChannel.selectedBank][x_seq][y_seq] = 103;
 						} else {
-							selectedChannel.sequence[selectedChannel.selectedBank][x_seq][y_seq] = 2;
+							selectedChannel.sequence[selectedChannel.selectedBank][x_seq][y_seq] = 103;
 						}
 						
 						// store note length
@@ -649,6 +776,12 @@ public class Flow implements Page, Serializable {
 						// update the led
 						flow_led(x, y, briSeqNote, this.index);
 						
+						
+						//topLayer
+						velocityModeInit(x,y,true);
+						redrawDevice();
+						
+						
 //						//debug
 //						System.out.println("---");System.out.println("---");
 //						for(int i=0;i<3;i++) {
@@ -665,52 +798,109 @@ public class Flow implements Page, Serializable {
 //							System.out.println("SNL-ON");
 //						}
 //						
-						
-					// change velocity	
-					} else if (this.selectedChannel.sequence[selectedChannel.selectedBank][x_seq][y_seq] == 1) {
-						this.selectedChannel.sequence[selectedChannel.selectedBank][x_seq][y_seq] = 2;
-						flow_led(x, y, briSeqNote, this.index);
+				
 					// remove note
-					} else if (this.selectedChannel.sequence[selectedChannel.selectedBank][x_seq][y_seq] == 2) {
+					} else { 
+						if(velocityMode == 1) 
+							velocityModeInit(x,y,false);
+						else { // remove note in the case of: velocity editing mode off 
+							x_seq = (getSelectedPatternNumber() * (this.monome.sizeX)) + x;
+							y_seq = (selectedChannel.depth * (this.monome.sizeY - 1)) + y;
+							//if (this.selectedChannel.sequence[selectedChannel.selectedBank][x_seq][y_seq] >0) {
+							this.selectedChannel.sequence[selectedChannel.selectedBank][x_seq][y_seq] = 0;
+							flow_led(x, y, 0, this.index);
+							int note_len = selectedChannel.seqNoteLengths[selectedChannel.selectedBank][x_seq][y_seq];
+							
+							selectedChannel.reGenerateNoteLengthArrayRow(selectedChannel.selectedBank, y_seq, x_seq, x_seq+16);
+							
+//							//debug
+//							System.out.println("---");System.out.println("---");
+//							for(int i=0;i<3;i++) {
+//								for(int j=0;j<16;j++)
+//									System.out.print(selectedChannel.seqNoteLengths[selectedChannel.selectedBank][j][i]);
+//								System.out.println("aa");
+//							}
+//							
+//							//debug
+//							System.out.println("---");System.out.println("---");
+//							for(int i=0;i<3;i++) {
+//								for(int j=0;j<16;j++)
+//									System.out.print(this.selectedChannel.sequence[selectedChannel.selectedBank][j][i]);
+//								System.out.println("SS");
+//							}
+							
+							// redraw the remaining part of the row
+							for(int i=0;i < 16; i++) {
+								if(x_seq + i >= SequencerChannel.MAX_SEQUENCE_LENGTH || x + i > 15)
+									break;
+								if(selectedChannel.sequence[selectedChannel.selectedBank][x_seq+i][y_seq] == 0) {
+										if(this.selectedChannel.seqNoteLengths[selectedChannel.selectedBank][x_seq+i][y_seq] == 0) 
+											flow_led(x+i, y, briOff, this.index);
+										else
+											flow_led(x+i, y, briSeqNoteLen, this.index);
+								} else { // if there is a note here
+										flow_led(x+i, y, briSeqNote, this.index);
+								}
+							}
+							
+						} 
+							
+						redrawDevice();
+						
+					}
+				}
+			} else if(y<this.monome.sizeY-1) { //sequencermode button release events
+				if(velocityMode == 1) {
+					x_seq = (getSelectedPatternNumber() * (this.monome.sizeX)) + x;
+					y_seq = (selectedChannel.depth * (this.monome.sizeY - 1)) + y;
+					if(velocityModeSomethingWasChanged == false && velocityModeNoteWasJustCreated == false) { // if nothing was changed, then we can remove the note 
+
+						//if (this.selectedChannel.sequence[selectedChannel.selectedBank][x_seq][y_seq] >0) {
 						this.selectedChannel.sequence[selectedChannel.selectedBank][x_seq][y_seq] = 0;
 						flow_led(x, y, 0, this.index);
 						int note_len = selectedChannel.seqNoteLengths[selectedChannel.selectedBank][x_seq][y_seq];
-						
+
 						selectedChannel.reGenerateNoteLengthArrayRow(selectedChannel.selectedBank, y_seq, x_seq, x_seq+16);
-						
-//						//debug
-//						System.out.println("---");System.out.println("---");
-//						for(int i=0;i<3;i++) {
-//							for(int j=0;j<16;j++)
-//								System.out.print(selectedChannel.seqNoteLengths[selectedChannel.selectedBank][j][i]);
-//							System.out.println("aa");
-//						}
-//						
-//						//debug
-//						System.out.println("---");System.out.println("---");
-//						for(int i=0;i<3;i++) {
-//							for(int j=0;j<16;j++)
-//								System.out.print(this.selectedChannel.sequence[selectedChannel.selectedBank][j][i]);
-//							System.out.println("SS");
-//						}
-						
+
+						//					//debug
+						//					System.out.println("---");System.out.println("---");
+						//					for(int i=0;i<3;i++) {
+						//						for(int j=0;j<16;j++)
+						//							System.out.print(selectedChannel.seqNoteLengths[selectedChannel.selectedBank][j][i]);
+						//						System.out.println("aa");
+						//					}
+						//					
+						//					//debug
+						//					System.out.println("---");System.out.println("---");
+						//					for(int i=0;i<3;i++) {
+						//						for(int j=0;j<16;j++)
+						//							System.out.print(this.selectedChannel.sequence[selectedChannel.selectedBank][j][i]);
+						//						System.out.println("SS");
+						//					}
+
 						// redraw the remaining part of the row
 						for(int i=0;i < 16; i++) {
 							if(x_seq + i >= SequencerChannel.MAX_SEQUENCE_LENGTH || x + i > 15)
 								break;
 							if(selectedChannel.sequence[selectedChannel.selectedBank][x_seq+i][y_seq] == 0) {
-									if(this.selectedChannel.seqNoteLengths[selectedChannel.selectedBank][x_seq+i][y_seq] == 0) 
-										flow_led(x+i, y, briOff, this.index);
-									else
-										flow_led(x+i, y, briSeqNoteLen, this.index);
+								if(this.selectedChannel.seqNoteLengths[selectedChannel.selectedBank][x_seq+i][y_seq] == 0) 
+									flow_led(x+i, y, briOff, this.index);
+								else
+									flow_led(x+i, y, briSeqNoteLen, this.index);
 							} else { // if there is a note here
-									flow_led(x+i, y, briSeqNote, this.index);
+								flow_led(x+i, y, briSeqNote, this.index);
 							}
 						}
-						
-						
+
+						velocityModeExity();
+						redrawDevice();
+					}
+					else { //velocity mode something was changed
+						velocityModeExity();
+						redrawDevice();
 					}
 				}
+
 			}
 		}
 	}
@@ -756,10 +946,11 @@ public class Flow implements Page, Serializable {
 		
 		if (this.tickNum >= quantization) {
 			this.tickNum = 0;
+			this.quantizeToNextStepWhenRecording = false;
 		}
 		
-		if(this.tickNum == 0) {
-			
+		if(2 * this.tickNum > quantization) {
+			this.quantizeToNextStepWhenRecording = true;
 		}
 		
 		// send a note on for lit leds on this sequence position
@@ -1048,7 +1239,7 @@ public class Flow implements Page, Serializable {
 		// now only normal mode 
 				if (chan.sequence[chan.playingBank][seq_pos][y] > 0) {
 					if (on > 0) {
-						velocity = (chan.sequence[chan.playingBank][seq_pos][y] * 64) - 1;
+						velocity = (chan.sequence[chan.playingBank][seq_pos][y]);
 					} else {
 						velocity = 0;
 					}
@@ -1059,7 +1250,7 @@ public class Flow implements Page, Serializable {
 					}
 					try {
 						if (velocity == 0) {
-							note_out.setMessage(ShortMessage.NOTE_OFF, midiChannel, note_num, velocity);
+							//notnecessaryanymore//note_out.setMessage(ShortMessage.NOTE_OFF, midiChannel, note_num, velocity);
 							chan.heldNotes[y] = 0;
 						} else {
 							note_out.setMessage(ShortMessage.NOTE_ON, midiChannel, note_num, velocity);
@@ -1254,6 +1445,7 @@ public class Flow implements Page, Serializable {
 			}
 			//put the keyboard mode light on
 			flow_led(ButtonNoKeyboard, this.monome.sizeY-1, briOn*(this.mode == KEYBOARDMODE ? 1 : 0), this.index);
+			flow_led(0,0,(keyboardRecordMode ? briOn : 0), this.index);
 		}
 		// redraw in matrix mode
 		else if(this.mode == MATRIXMODE) {
@@ -1323,6 +1515,7 @@ public class Flow implements Page, Serializable {
 			}
 			// top layer
 			patternModeRedraw();
+			velocityModeRedraw();
 			// redrawDevice the bottom row
 			this.sequencerRedrawBottomRow();
 		}
@@ -1910,6 +2103,12 @@ public class Flow implements Page, Serializable {
 	}
 
 	
+//	public void keyboardModeRecordNote() {
+//		
+//	}
+//	
+	
+	
 	/**
 	 * Copies src bank to dst bank.
 	 *
@@ -2191,14 +2390,22 @@ public class Flow implements Page, Serializable {
 		if(topLayerMode == TopLayerInactive)
 			this.monome.vari_led(x, y, value, index);
 		else {
-			if(topLayerMode == TopLayerPatternMode) {
+			if(topLayerMode == TopLayerVelocityNoteLengthAndCCMode) {
+				if(x < velocityModeXStart - velocityModeMoveLeftToPreventOverlap 
+						|| x >= velocityModeXStart - velocityModeMoveLeftToPreventOverlap + velocityModeWidth
+						|| y < velocityModeYStart || y >= velocityModeYStart + velocityModeHeight)
+					this.monome.vari_led(x, y, value, index);
+				else {
+					return;
+				}
+			} else if(topLayerMode == TopLayerPatternMode) {
 				if(x < patternModeXStart || x >= patternModeXEnd || y < patternModeYStart || y >= patternModeYEnd)
 					this.monome.vari_led(x, y, value, index);
 				else {
 					// in pattern mode and one of the top layer places was active, ignore
 					return;
 				}
-			}
+			} 
 		}
 	}
 	
