@@ -25,7 +25,6 @@ public class FlowGUI extends JPanel implements Serializable {
 	public JComboBox keyboardRowOffsetCB;
 	public JLabel keyboardRowOffsetLBL;
 	private JLabel rowLBL = null;
-	public JTextField noteTF = null;
 	
 	//umut new 
 	private JLabel scaleLBL;
@@ -33,18 +32,7 @@ public class FlowGUI extends JPanel implements Serializable {
 	private JComboBox scaleCB;
 	private JTextField rootTF;
 	private JButton generateScaleBtn;
-	
-	private JButton saveBtn = null;
-	private JLabel bankSizeLBL = null;
-	public JTextField bankSizeTF = null;
-	private JLabel midiChannelLBL = null;
 	private JLabel channelLBL = null;
-	public JTextField channelTF = null;
-	private JLabel holdModeLBL = null;
-	private JCheckBox holdModeCB = null;
-	private String[] rowChoices = {"Row 1", "Row 2", "Row 3", "Row 4", "Row 5", "Row 6",
-			"Row 7", "Row 8", "Row 9", "Row 10", "Row 11", "Row 12", "Row 13", "Row 14",
-			"Row 15", "Row 16"};
 	
 	private String[] scaleChoices = { "Major", "Minor", "Chromatic", "Drums" };
 	// the jump in semitones between notes in the scale, automatically cycles before the -99
@@ -53,10 +41,13 @@ public class FlowGUI extends JPanel implements Serializable {
 								   {2,1,2,2,1,2,2,-99,0,0,0,0,0,0,0,0,0}, 
 								   {1,1,1,1,1,1,1,1,1,1,1,1,-99,0,0,0,0},
 								   {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,-99}
-								 }; 
-	public JComboBox quantCB = null;
-	private JLabel quantLBL = null;
-
+								 };
+	
+	// this is a little offset, added so that when depth=1 the bottom row aligns. it records where the scale starts
+	// i.e. how many rows do you need to move things up so that at depth = 1 i.e. 7 rows up, the root note aligns
+	private int[] scaleInitialIndex = {0,0,0,0};
+	private int[] scaleSeminoteOffset = {0,0,5,5};
+	
 	/**
 	 * This is the default constructor
 	 * @param page 
@@ -73,48 +64,26 @@ public class FlowGUI extends JPanel implements Serializable {
 	 * @return void
 	 */
 	private void initialize() {
-		quantLBL = new JLabel();
-		quantLBL.setBounds(new Rectangle(15, 135, 76, 16));
-		quantLBL.setText("Quantization");
-		quantLBL.setHorizontalAlignment(SwingConstants.RIGHT);
-		midiChannelLBL = new JLabel();
-		midiChannelLBL.setBounds(new Rectangle(35, 80, 51, 21));
-		midiChannelLBL.setText("Channel");
-		midiChannelLBL.setHorizontalAlignment(SwingConstants.RIGHT);
-		bankSizeLBL = new JLabel();
-		bankSizeLBL.setBounds(new Rectangle(30, 55, 56, 21));
-		bankSizeLBL.setText("Bank Size");
-		bankSizeLBL.setHorizontalAlignment(SwingConstants.RIGHT);
+//		quantLBL = new JLabel();
+//		quantLBL.setBounds(new Rectangle(15, 135, 76, 16));
+//		quantLBL.setText("Quantization");
+//		quantLBL.setHorizontalAlignment(SwingConstants.RIGHT);
 		this.setSize(300, 300);
 		this.setLayout(null);
 		this.add(getPageLabel(), null);
-		this.add(getNoteTF(), null);
-		this.add(getRowCB(), null);
 		this.add(getChannelCB(), null);
 		this.add(getKeyboardRowOffsetLBL(), null);
 		this.add(getKeyboardRowOffsetCB(), null);
-		this.add(getRowLBL(), null);
 		this.add(getScaleLBL(), null);
+		
+		this.add(getChannelLBL(), null);
 		
 		this.add(getRootLBL(), null);
 		this.add(getScaleCB(), null);
 		this.add(getRootTF(), null);
  		this.add(getGenerateScaleBtn(), null);
 //		
-		this.add(getSaveBtn(), null);
-		this.add(bankSizeLBL, null);
-		this.add(getBankSizeTF(), null);
-		this.add(getChannelLBL(), null);
-		this.add(midiChannelLBL, null);
-		this.add(getChannelTF(), null);
-		this.add(getHoldModeLBL(), null);
-		this.add(getHoldModeCB(), null);
-		setName("MIDI Sequencer");
-		this.add(getQuantCB(), null);
-		this.add(quantLBL, null);
-		for (int i = 0; i < rowChoices.length; i++) {
-			rowCB.addItem(rowChoices[i]);
-		}
+		setName("Flow Page");
 		for (int i = 0; i < scaleChoices.length; i++){
 			scaleCB.addItem(scaleChoices[i]);
 		}
@@ -169,27 +138,7 @@ public class FlowGUI extends JPanel implements Serializable {
 	}
 	
 	/**
-	 * This method initializes rowCB	
-	 * 	
-	 * @return javax.swing.JComboBox	
-	 */
-	private JComboBox getRowCB() {
-		if (rowCB == null) {
-			rowCB = new JComboBox();
-			rowCB.setBounds(new Rectangle(85, 30, 71, 23));
-			rowCB.addActionListener(new java.awt.event.ActionListener() {
-				public void actionPerformed(java.awt.event.ActionEvent e) {
-					int index = rowCB.getSelectedIndex();
-					String noteVal = page.numberToMidiNote(page.selectedChannel.noteNumbers[index]);
-					noteTF.setText(noteVal);
-				}
-			});
-		}
-		return rowCB;
-	}
-
-	/**
-	 * This method initializes rowCB	
+	 * This method initializes channelCB	
 	 * 	
 	 * @return javax.swing.JComboBox	
 	 */
@@ -207,22 +156,7 @@ public class FlowGUI extends JPanel implements Serializable {
 		return channelCB;
 	}
 	
-	/**
-	 * This method initializes rowLBL	
-	 * 	
-	 * @return javax.swing.JLabel	
-	 */
-	private JLabel getRowLBL() {
-		if (rowLBL == null) {
-			rowLBL = new JLabel();
-			rowLBL.setText("Row");
-			rowLBL.setBounds(new Rectangle(15, 30, 71, 21));
-			rowLBL.setHorizontalAlignment(SwingConstants.RIGHT);
-		}
-		return rowLBL;
-	}
 	
-
 	private JLabel getChannelLBL() {
 		if(channelLBL == null) {
 			channelLBL = new JLabel();
@@ -309,33 +243,20 @@ public class FlowGUI extends JPanel implements Serializable {
 		return rootTF;
 	}	
 	
-	/**
-	 * This method initializes noteTF	
-	 * 	
-	 * @return javax.swing.JTextField	
-	 */
-	private JTextField getNoteTF() {
-		if (noteTF == null) {
-			noteTF = new JTextField();
-			noteTF.setText("C-1");
-			noteTF.setBounds(new Rectangle(160, 30, 76, 21));
-		}
-		return noteTF;
-	}
 
 	/**
 	 * This method initializes saveBtn	
 	 * 	
 	 * @return javax.swing.JButton	
 	 */
-	private JButton getSaveBtn() {
-		if (saveBtn == null) {
-			saveBtn = new JButton();
-			saveBtn.setBounds(new Rectangle(22, 164, 151, 21));
-			saveBtn.setText("Update Preferences");
-			saveBtn.addActionListener(new java.awt.event.ActionListener() {
-				public void actionPerformed(java.awt.event.ActionEvent e) {
-					page.superdebug();
+//	private JButton getSaveBtn() {
+//		if (saveBtn == null) {
+//			saveBtn = new JButton();
+//			saveBtn.setBounds(new Rectangle(22, 164, 151, 21));
+//			saveBtn.setText("Update Preferences");
+//			saveBtn.addActionListener(new java.awt.event.ActionListener() {
+//				public void actionPerformed(java.awt.event.ActionEvent e) {
+//					//page.superdebug();
 //					String midiNote = noteTF.getText();
 //					int index = rowCB.getSelectedIndex();
 //					page.selectedChannel.noteNumbers[index] = page.noteToMidiNumber(midiNote);
@@ -369,11 +290,11 @@ public class FlowGUI extends JPanel implements Serializable {
 //						bankSizeTF.setText("00");
 //						return;
 //					}
-				}
-			});
-		}
-		return saveBtn;
-	}
+//				}
+//			});
+//		}
+//		return saveBtn;
+//	}
 
 
 	/**
@@ -396,18 +317,19 @@ public class FlowGUI extends JPanel implements Serializable {
 					int selectedScaleIndex = scaleCB.getSelectedIndex();
 					int guiSelectedChannelIndex = channelCB.getSelectedIndex();
 					String rootNoteText = rootTF.getText();
-					int rootNoteNumber = page.noteToMidiNumber(rootNoteText);
-					int scaleIndex=0;
-					page.channels[guiSelectedChannelIndex].noteNumbers[0] = rootNoteNumber;
+					int rootNoteNumber = page.noteToMidiNumber(rootNoteText)-12;
+					
+					int scaleIndex=scaleInitialIndex[selectedScaleIndex];
+					page.channels[guiSelectedChannelIndex].noteNumbers[0] = rootNoteNumber+scaleSeminoteOffset[selectedScaleIndex];
 					int rowIndex=1;
-					while(rowIndex<16) {
+					while(rowIndex<page.SEQUENCE_HEIGHT) {
 						page.channels[guiSelectedChannelIndex].noteNumbers[rowIndex] = page.channels[guiSelectedChannelIndex].noteNumbers[rowIndex-1] + scaleJumps[selectedScaleIndex][scaleIndex];
 						rowIndex++;
 						scaleIndex++;
 						if(scaleJumps[selectedScaleIndex][scaleIndex]==-99)
 							scaleIndex=0;
 					};
-				    
+					
 					// is drums? (notes don't light up for drums in keyboard mode)
 					if(selectedScaleIndex == 3) {
 						page.channels[guiSelectedChannelIndex].isDrums = true;
@@ -417,8 +339,8 @@ public class FlowGUI extends JPanel implements Serializable {
 					setScaleForKeyboardMode();
 					
 					// update the selected row's value in the text field
-					String noteVal = page.numberToMidiNote(page.channels[guiSelectedChannelIndex].noteNumbers[rowCB.getSelectedIndex()]);
-					noteTF.setText(noteVal);
+					//String noteVal = page.numberToMidiNote(page.channels[guiSelectedChannelIndex].noteNumbers[rowCB.getSelectedIndex()]);
+					//noteTF.setText(noteVal);
 					
 					page.redrawDevice();
 				}
@@ -426,78 +348,29 @@ public class FlowGUI extends JPanel implements Serializable {
 		}
 		return generateScaleBtn;
 	}
-	/**
-	 * This method initializes bankSizeTF	
-	 * 	
-	 * @return javax.swing.JTextField	
-	 */
-	private JTextField getBankSizeTF() {
-		if (bankSizeTF == null) {
-			bankSizeTF = new JTextField();
-			bankSizeTF.setBounds(new Rectangle(85, 55, 31, 21));
-		}
-		return bankSizeTF;
-	}
-
-	/**
-	 * This method initializes channelTF	
-	 * 	
-	 * @return javax.swing.JTextField	
-	 */
-	private JTextField getChannelTF() {
-		if (channelTF == null) {
-			channelTF = new JTextField();
-			channelTF.setBounds(new Rectangle(85, 80, 31, 21));
-		}
-		return channelTF;
-	}
-
-	/**
-	 * This method initializes holdModeLBL	
-	 * 	
-	 * @return javax.swing.JLabel	
-	 */
-	private JLabel getHoldModeLBL() {
-		if (holdModeLBL == null) {
-			holdModeLBL = new JLabel();
-			holdModeLBL.setText("Hold Mode");
-			holdModeLBL.setBounds(new Rectangle(25, 105, 61, 21));
-		}
-		return holdModeLBL;
-	}
-
-	/**
-	 * This method initializes holdModeCB	
-	 * 	
-	 * @return javax.swing.JCheckBox	
-	 */
-	public JCheckBox getHoldModeCB() {
-		if (holdModeCB == null) {
-			holdModeCB = new JCheckBox();
-			holdModeCB.setBounds(new Rectangle(85, 105, 21, 21));
-		}
-		return holdModeCB;
-	}
-
-	/**
-	 * This method initializes quantCB	
-	 * 	
-	 * @return javax.swing.JComboBox	
-	 */
-	private JComboBox getQuantCB() {
-		if (quantCB == null) {
-			quantCB = new JComboBox();
-			quantCB.setBounds(new Rectangle(90, 130, 66, 25));
-			quantCB.addItem("1 bar");
-			quantCB.addItem("1/2");
-			quantCB.addItem("1/4");
-			quantCB.addItem("1/8");
-			quantCB.addItem("1/16");
-			quantCB.addItem("1/32");
-		}
-		return quantCB;
-	}
 	
+	
+//	/**
+//	 * This method initializes quantCB	
+//	 * 	
+//	 * @return javax.swing.JComboBox	
+//	 */
+//	private JComboBox getQuantCB() {
+//		if (quantCB == null) {
+//			quantCB = new JComboBox();
+//			quantCB.setBounds(new Rectangle(90, 130, 66, 25));
+//			quantCB.addItem("1 bar");
+//			quantCB.addItem("1/2");
+//			quantCB.addItem("1/4");
+//			quantCB.addItem("1/8");
+//			quantCB.addItem("1/16");
+//			quantCB.addItem("1/32");
+//		}
+//		return quantCB;
+//	}
+//	
+	
+	// warning: the keyboard mode and the sequencer mode scale setting is done separately
 	private void setScaleForKeyboardMode() {
 		int selectedScaleIndex = scaleCB.getSelectedIndex();
 		String rootNoteText = rootTF.getText();
@@ -522,13 +395,7 @@ public class FlowGUI extends JPanel implements Serializable {
 		page.channels[guiSelectedChannelIndex].scaleTotalInSemitones = diffsCount;
 		
 		page.generateIsMidiNumberInScale(page.channels[guiSelectedChannelIndex]);
-		
-//		System.out.println(page.scaleLength);
-//		System.out.println(page.scaleTotalInSemitones);
-//		System.out.println(page.scaleNoteDiffsToRoot[0]);
-//		System.out.println(page.scaleNoteDiffsToRoot[1]);
-//		System.out.println(page.scaleNoteDiffsToRoot[2]);
-//		System.out.println(page.scaleNoteDiffsToRoot[3]);
+
 	}
 
 }  //  @jve:decl-index=0:visual-constraint="10,10"

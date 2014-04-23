@@ -174,7 +174,8 @@ public class Flow implements Page, Serializable {
 	 
 /*********** */
 
-	public static final int NUMBER_OF_CHANNELS = 8;
+	public static final int NUMBER_OF_CHANNELS = 16;
+	public static final int NUMBER_OF_SAVED_CHANNELS = 8;
 	
 	
 	
@@ -1567,9 +1568,7 @@ public class Flow implements Page, Serializable {
 		int holdmode = 0;
 		xml.append("      <name>MIDI Sequencer</name>\n");
 		xml.append("      <pageName>" + this.pageName + "</pageName>\n");
-		if (this.gui.getHoldModeCB().isSelected() == true) {
-			holdmode = 1;
-		}
+		holdmode=0;
 		xml.append("      <holdmode>" + holdmode + "</holdmode>\n");
 		xml.append("      <banksize>" + MAX_SEQUENCE_LENGTH + "</banksize>\n");
 		xml.append("      <midichannel>" + this.selectedChannel.midiChannel + "</midichannel>\n");
@@ -1581,7 +1580,7 @@ public class Flow implements Page, Serializable {
 				xml.append("      <row>" + String.valueOf(this.channels[chnum].noteNumbers[i]) + "</row>\n");
 			}
 		}
-		for(int chnum = 0; chnum < NUMBER_OF_CHANNELS; chnum++) {
+		for(int chnum = 0; chnum < NUMBER_OF_SAVED_CHANNELS; chnum++) {
 			for (int i=0; i < NUMBER_OF_BANKS; i++) {
 				xml.append("      <sequence>");
 				for (int j=0; j < MAX_SEQUENCE_LENGTH; j++) {
@@ -1645,18 +1644,6 @@ public class Flow implements Page, Serializable {
 		return;
 	}
 	
-	public void setHoldMode(String holdmode) {
-		if (holdmode.equals("1")) {
-			this.gui.getHoldModeCB().doClick();
-		}
-	}
-	
-	public void setMidiChannel(String midiChannel2) {
-		this.selectedChannel.midiChannel = Integer.parseInt(midiChannel2);
-		this.gui.channelTF.setText(midiChannel2);
-	}
-	
-		
 	public void setIndex(int index) {
 		this.index = index;
 	}
@@ -1676,9 +1663,9 @@ public class Flow implements Page, Serializable {
 	
 	public void configure(Element pageElement) {
 		this.setName(this.monome.readConfigValue(pageElement, "pageName"));
-		this.setHoldMode(this.monome.readConfigValue(pageElement, "holdmode"));
+		//this.setHoldMode(this.monome.readConfigValue(pageElement, "holdmode"));
 		//this.setBankSize(Integer.parseInt(this.monome.readConfigValue(pageElement, "banksize")));
-		this.setMidiChannel(this.monome.readConfigValue(pageElement, "midichannel"));
+		//this.setMidiChannel(this.monome.readConfigValue(pageElement, "midichannel"));
 		this.setQuantization(this.monome.readConfigValue(pageElement, "sequencerQuantization"));
 		String sMuteMode = this.monome.readConfigValue(pageElement, "muteMode");
 		if (sMuteMode != null) {
@@ -1701,7 +1688,7 @@ public class Flow implements Page, Serializable {
 		}		
 		
 		NodeList seqNL = pageElement.getElementsByTagName("sequence");
-		for(int chnum=0; chnum < NUMBER_OF_CHANNELS; chnum++) {
+		for(int chnum=0; chnum < NUMBER_OF_SAVED_CHANNELS; chnum++) { //NUMBER_OF_CHANNELS=16 but we are only saving half the channels
 			for (int bnum=0; bnum < NUMBER_OF_BANKS; bnum++) {
 				Element el = (Element) seqNL.item(bnum);		
 				NodeList nl = el.getChildNodes();		
@@ -1715,19 +1702,19 @@ public class Flow implements Page, Serializable {
 	private void setQuantization(String quantization) {
 	    try {
 	        this.quantization = Integer.parseInt(quantization);
-	        if (this.quantization == 96) {
-	            this.gui.quantCB.setSelectedIndex(0);
-	        } else if (this.quantization == 48) {
-	            this.gui.quantCB.setSelectedIndex(1);
-	        } else if (this.quantization == 24) {
-	            this.gui.quantCB.setSelectedIndex(2);
-	        } else if (this.quantization == 12) {
-	            this.gui.quantCB.setSelectedIndex(3);
-	        } else if (this.quantization == 6) {
-	            this.gui.quantCB.setSelectedIndex(4);
-	        } else if (this.quantization == 3) {
-	            this.gui.quantCB.setSelectedIndex(5);
-	        }
+//	        if (this.quantization == 96) {
+//	            this.gui.quantCB.setSelectedIndex(0);
+//	        } else if (this.quantization == 48) {
+//	            this.gui.quantCB.setSelectedIndex(1);
+//	        } else if (this.quantization == 24) {
+//	            this.gui.quantCB.setSelectedIndex(2);
+//	        } else if (this.quantization == 12) {
+//	            this.gui.quantCB.setSelectedIndex(3);
+//	        } else if (this.quantization == 6) {
+//	            this.gui.quantCB.setSelectedIndex(4);
+//	        } else if (this.quantization == 3) {
+//	            this.gui.quantCB.setSelectedIndex(5);
+//	        }
 	    } catch (NumberFormatException e) {
 	        return;
 	    }
