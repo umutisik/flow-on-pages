@@ -335,39 +335,40 @@ public class FlowGUI extends JPanel implements Serializable {
 			saveBtn.setText("Update Preferences");
 			saveBtn.addActionListener(new java.awt.event.ActionListener() {
 				public void actionPerformed(java.awt.event.ActionEvent e) {
-					String midiNote = noteTF.getText();
-					int index = rowCB.getSelectedIndex();
-					page.selectedChannel.noteNumbers[index] = page.noteToMidiNumber(midiNote);
-					if (quantCB.getSelectedIndex() == 0) {
-						page.quantization = 96;
-					} else if (quantCB.getSelectedIndex() == 1) {
-						page.quantization = 48;
-					} else if (quantCB.getSelectedIndex() == 2) {
-						page.quantization = 24;
-					} else if (quantCB.getSelectedIndex() == 3) {
-						page.quantization = 12;
-					} else if (quantCB.getSelectedIndex() == 4) {
-						page.quantization = 6;
-					} else if (quantCB.getSelectedIndex() == 5) {
-						page.quantization = 3;
-					}
-					try {
-						int bankSize = Integer.parseInt(bankSizeTF.getText());
-						if (bankSize < 1 || bankSize > 64) {
-							bankSizeTF.setText("00");
-							return;
-						}
-						//page.setBankSize(bankSize);
-						int midiChannel = Integer.parseInt(channelTF.getText());
-						if (midiChannel < 1 || midiChannel > 16) {
-							bankSizeTF.setText(Integer.toString(page.selectedChannel.midiChannel));
-							return;
-						}
-						page.setMidiChannel(channelTF.getText());
-					} catch (NumberFormatException ex) {
-						bankSizeTF.setText("00");
-						return;
-					}
+					page.superdebug();
+//					String midiNote = noteTF.getText();
+//					int index = rowCB.getSelectedIndex();
+//					page.selectedChannel.noteNumbers[index] = page.noteToMidiNumber(midiNote);
+//					if (quantCB.getSelectedIndex() == 0) {
+//						page.quantization = 96;
+//					} else if (quantCB.getSelectedIndex() == 1) {
+//						page.quantization = 48;
+//					} else if (quantCB.getSelectedIndex() == 2) {
+//						page.quantization = 24;
+//					} else if (quantCB.getSelectedIndex() == 3) {
+//						page.quantization = 12;
+//					} else if (quantCB.getSelectedIndex() == 4) {
+//						page.quantization = 6;
+//					} else if (quantCB.getSelectedIndex() == 5) {
+//						page.quantization = 3;
+//					}
+//					try {
+//						int bankSize = Integer.parseInt(bankSizeTF.getText());
+//						if (bankSize < 1 || bankSize > 64) {
+//							bankSizeTF.setText("00");
+//							return;
+//						}
+//						//page.setBankSize(bankSize);
+//						int midiChannel = Integer.parseInt(channelTF.getText());
+//						if (midiChannel < 1 || midiChannel > 16) {
+//							bankSizeTF.setText(Integer.toString(page.selectedChannel.midiChannel));
+//							return;
+//						}
+//						page.setMidiChannel(channelTF.getText());
+//					} catch (NumberFormatException ex) {
+//						bankSizeTF.setText("00");
+//						return;
+//					}
 				}
 			});
 		}

@@ -4,6 +4,8 @@ import java.awt.Dimension;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Random;
+import java.util.Scanner;
+
 
 import javax.sound.midi.InvalidMidiDataException;
 import javax.sound.midi.MidiDevice;
@@ -87,11 +89,19 @@ public class Flow implements Page, Serializable {
 	
 	
 	
+	public static final int MAX_SEQUENCE_LENGTH = 256;
+	public static final int NUMBER_OF_BANKS = 18;
+	public static final int SEQUENCE_HEIGHT = 51;
+	
+	
+	
 	/**
 	 * The current MIDI clock tick number (from 0 to 6)
 	 */
 	private int tickNum = 0;
 
+	
+	
 	
 	
 /****************** keyboard mode vars (umut) ***************/
@@ -119,7 +129,7 @@ public class Flow implements Page, Serializable {
 	
 /****************** matrix mode vars   ***************/
 	// steps top to bottom
-	private int[] rowSwap = new int[16]; 
+	private int[] rowSwap = new int[SEQUENCE_HEIGHT]; 
 	
 	
 /****************** end matrix mode vars   ***************/	
@@ -164,7 +174,7 @@ public class Flow implements Page, Serializable {
 	 
 /*********** */
 
-	public static final int NUMBER_OF_CHANNELS = 16;
+	public static final int NUMBER_OF_CHANNELS = 8;
 	
 	
 	
@@ -236,6 +246,8 @@ public class Flow implements Page, Serializable {
     private int briOff = 0;
     private int briBackground = 2; // for background in extra toplayer panels
     
+    public static final int DEPTHINCREMENT = 7; 
+    
     ///////////////////////////////////////////////////////////////////////////////
     // these handle an additional top layer for editing parameters etc.
     // the way this works: flow_led takes care of all the LEDs
@@ -305,6 +317,13 @@ public class Flow implements Page, Serializable {
 		aX = patternModeXStart + x;
 		monome.vari_led(aX, aY, briBankSelected, this.index);
 		
+		y = 3; 
+    	x = this.selectedChannel.depth + 2; 
+		aY = patternModeYStart + y;
+		aX = patternModeXStart + x;
+		monome.vari_led(aX, aY, briBankSelected, this.index);
+
+		
     	this.monome.vari_led(ButtonNoPattern, this.monome.sizeY-1, briOn, this.index);
     	
     	//debugCount++;
@@ -339,6 +358,9 @@ public class Flow implements Page, Serializable {
     				patternModeCopyWhat = x;
     			}
     			redrawDevice();
+    		} else if(y == 3 && x > 1 && x < 8) {
+    			selectedChannel.depth = x-2;
+    			redrawDevice();
     		}
     	}
     	else { // button released
@@ -346,7 +368,7 @@ public class Flow implements Page, Serializable {
     			if(patternModeAlreadyCopiedAtLeastOnce == false)
     				selectedChannel.patternsSelected[selectedChannel.selectedBank] = x;
     			patternModeCopyOn = false;
-    			redrawDevice();
+    			patternModeRedraw();
     		}
     	}
     	//System.out.print("a");
@@ -399,7 +421,7 @@ public class Flow implements Page, Serializable {
     			velocityModeLed(x,y,briBackground);
     	
     	x=0;
-    	int nl = selectedChannel.seqNoteLengths[selectedChannel.selectedBank][getSelectedPatternNumber()*16+velocityModeXofNoteSelected][velocityModeYofNoteSelected];
+    	int nl = selectedChannel.seqNoteLengths[selectedChannel.selectedBank][xToSeqX(velocityModeXofNoteSelected)][yToSeqY(velocityModeYofNoteSelected)];
     	//System.out.println(nl);
     	for(y=0;y<16;y++) {
     		if(16-y<=nl) 
@@ -407,10 +429,10 @@ public class Flow implements Page, Serializable {
     	}
     	
     	x=1;
-    	int vl = selectedChannel.sequence[selectedChannel.selectedBank][getSelectedPatternNumber()*16+velocityModeXofNoteSelected][velocityModeYofNoteSelected];
+    	int vl = selectedChannel.sequence[selectedChannel.selectedBank][xToSeqX(velocityModeXofNoteSelected)][yToSeqY(velocityModeYofNoteSelected)];
     	vl = 15 - ((vl-7)/8);
     	
-    	System.out.println(vl);
+    	//System.out.println(vl);
     	for(y=0;y<16;y++) {
     		if(y>=vl) 
     			velocityModeLed(x,y,briSeqNote);
@@ -421,15 +443,15 @@ public class Flow implements Page, Serializable {
     private void velocityModeHandlePress(int x, int y, int value) {
     	if(x < 0 || x >= velocityModeWidth || y<0 || y>=velocityModeHeight)
     		return;
-    	System.out.println(x + " " + y);
+    	//System.out.println(x + " " + y);
     	if(x == 0 && value == 1) {
-    		selectedChannel.seqNoteLengths[selectedChannel.selectedBank][getSelectedPatternNumber()*16+velocityModeXofNoteSelected][velocityModeYofNoteSelected] = 16-y;
-    		selectedChannel.reGenerateNoteLengthArrayRow(selectedChannel.selectedBank, velocityModeYofNoteSelected, getSelectedPatternNumber()*16+velocityModeXofNoteSelected, getSelectedPatternNumber()*16 + 16);
+    		selectedChannel.seqNoteLengths[selectedChannel.selectedBank][xToSeqX(velocityModeXofNoteSelected)][yToSeqY(velocityModeYofNoteSelected)] = 16-y;
+    		selectedChannel.reGenerateNoteLengthArrayRow(selectedChannel.selectedBank, yToSeqY(velocityModeYofNoteSelected), xToSeqX(velocityModeXofNoteSelected), getSelectedPatternNumber()*16 + 16);
     		velocityModeSomethingWasChanged = true;
     		redrawDevice();
     	}
     	if(x == 1 && value == 1) {
-    		selectedChannel.sequence[selectedChannel.selectedBank][getSelectedPatternNumber()*16+velocityModeXofNoteSelected][velocityModeYofNoteSelected] = 7 + (15-y)*8;;
+    		selectedChannel.sequence[selectedChannel.selectedBank][xToSeqX(velocityModeXofNoteSelected)][yToSeqY(velocityModeYofNoteSelected)] = 7 + (15-y)*8;;
     		velocityModeSomethingWasChanged = true;
     		redrawDevice();
     	}
@@ -466,7 +488,7 @@ public class Flow implements Page, Serializable {
 		channels[0].playingBank = 0;
 		
 		//initialize step swapping
-		for(int i=0;i<this.monome.sizeX;i++)
+		for(int i=0;i<SEQUENCE_HEIGHT;i++)
 			this.rowSwap[i]=i;
 
 		// initialize midi note off scheduler
@@ -615,9 +637,9 @@ public class Flow implements Page, Serializable {
 		else if(this.mode == MATRIXMODE) {
 			if(y !=this.monome.sizeY-1) // not a bottom row button
 			{
-				flow_led(x, this.rowSwap[x], 0, this.index);
+				flow_led(x, seqYtoY(this.rowSwap[yToSeqY(x)]), 0, this.index);
 				flow_led(x, y, briMatrixDefault, this.index);
-				rowSwap[x]=y;
+				rowSwap[yToSeqY(x)]=seqYtoY(y);
 			}
 			return;	    
 		}
@@ -629,11 +651,8 @@ public class Flow implements Page, Serializable {
 			
 			if(y == (this.monome.sizeY - 1)) {
 				if (value == 1) {
-					if (x < 2) { // depth setting for 64 or 128
-						if (this.monome.sizeY == 8) {
-							selectedChannel.depth = x;
-							this.redrawDevice();
-						}
+					if (x < 2) {
+						
 					}
 					if (x == 2) {
 						this.stopNotes();
@@ -736,8 +755,8 @@ public class Flow implements Page, Serializable {
 
 				// record button press to the sequence
 				} else { // if not a last row button
-					x_seq = (getSelectedPatternNumber() * (this.monome.sizeX)) + x;
-					y_seq = (selectedChannel.depth * (this.monome.sizeY - 1)) + y;
+					x_seq = xToSeqX(x);
+					y_seq = yToSeqY(y);
 					if (selectedChannel.sequence[selectedChannel.selectedBank][x_seq][y_seq] == 0) {
 						// add the note to the sequencer
 						if (this.velocityMode == 1) {
@@ -757,7 +776,7 @@ public class Flow implements Page, Serializable {
 						int note_len = selectedChannel.seqNoteLengths[selectedChannel.selectedBank][x_seq][y_seq];
 						// redraw this part of the row
 						for(int i=0;i < note_len; i++) {
-							if(x_seq + i >= SequencerChannel.MAX_SEQUENCE_LENGTH)
+							if(x_seq + i >= MAX_SEQUENCE_LENGTH)
 								break;
 							if(selectedChannel.sequence[selectedChannel.selectedBank][x_seq+i][y_seq] == 0) {
 								if(x+i <= 15) { 
@@ -780,58 +799,24 @@ public class Flow implements Page, Serializable {
 						//topLayer
 						velocityModeInit(x,y,true);
 						redrawDevice();
-						
-						
-//						//debug
-//						System.out.println("---");System.out.println("---");
-//						for(int i=0;i<3;i++) {
-//							for(int j=0;j<16;j++)
-//								System.out.print(this.selectedChannel.sequence[selectedChannel.selectedBank][j][i]);
-//							System.out.println("SS-ON");
-//						}
-//						
-//						//debug
-//						System.out.println("---");System.out.println("---");
-//						for(int i=0;i<3;i++) {
-//							for(int j=0;j<16;j++)
-//								System.out.print(selectedChannel.seqNoteLengths[selectedChannel.selectedBank][j][i]);
-//							System.out.println("SNL-ON");
-//						}
-//						
+					
 				
 					// remove note
 					} else { 
 						if(velocityMode == 1) 
 							velocityModeInit(x,y,false);
 						else { // remove note in the case of: velocity editing mode off 
-							x_seq = (getSelectedPatternNumber() * (this.monome.sizeX)) + x;
-							y_seq = (selectedChannel.depth * (this.monome.sizeY - 1)) + y;
-							//if (this.selectedChannel.sequence[selectedChannel.selectedBank][x_seq][y_seq] >0) {
+							x_seq = xToSeqX(x);
+							y_seq = yToSeqY(y);
 							this.selectedChannel.sequence[selectedChannel.selectedBank][x_seq][y_seq] = 0;
 							flow_led(x, y, 0, this.index);
 							int note_len = selectedChannel.seqNoteLengths[selectedChannel.selectedBank][x_seq][y_seq];
 							
 							selectedChannel.reGenerateNoteLengthArrayRow(selectedChannel.selectedBank, y_seq, x_seq, x_seq+16);
 							
-//							//debug
-//							System.out.println("---");System.out.println("---");
-//							for(int i=0;i<3;i++) {
-//								for(int j=0;j<16;j++)
-//									System.out.print(selectedChannel.seqNoteLengths[selectedChannel.selectedBank][j][i]);
-//								System.out.println("aa");
-//							}
-//							
-//							//debug
-//							System.out.println("---");System.out.println("---");
-//							for(int i=0;i<3;i++) {
-//								for(int j=0;j<16;j++)
-//									System.out.print(this.selectedChannel.sequence[selectedChannel.selectedBank][j][i]);
-//								System.out.println("SS");
-//							}
-							
 							// redraw the remaining part of the row
 							for(int i=0;i < 16; i++) {
-								if(x_seq + i >= SequencerChannel.MAX_SEQUENCE_LENGTH || x + i > 15)
+								if(x_seq + i >= MAX_SEQUENCE_LENGTH || x + i > 15)
 									break;
 								if(selectedChannel.sequence[selectedChannel.selectedBank][x_seq+i][y_seq] == 0) {
 										if(this.selectedChannel.seqNoteLengths[selectedChannel.selectedBank][x_seq+i][y_seq] == 0) 
@@ -851,36 +836,19 @@ public class Flow implements Page, Serializable {
 				}
 			} else if(y<this.monome.sizeY-1) { //sequencermode button release events
 				if(velocityMode == 1) {
-					x_seq = (getSelectedPatternNumber() * (this.monome.sizeX)) + x;
-					y_seq = (selectedChannel.depth * (this.monome.sizeY - 1)) + y;
+					x_seq = xToSeqX(x);
+					y_seq = yToSeqY(y);
 					if(velocityModeSomethingWasChanged == false && velocityModeNoteWasJustCreated == false) { // if nothing was changed, then we can remove the note 
-
-						//if (this.selectedChannel.sequence[selectedChannel.selectedBank][x_seq][y_seq] >0) {
+						
 						this.selectedChannel.sequence[selectedChannel.selectedBank][x_seq][y_seq] = 0;
 						flow_led(x, y, 0, this.index);
 						int note_len = selectedChannel.seqNoteLengths[selectedChannel.selectedBank][x_seq][y_seq];
 
 						selectedChannel.reGenerateNoteLengthArrayRow(selectedChannel.selectedBank, y_seq, x_seq, x_seq+16);
 
-						//					//debug
-						//					System.out.println("---");System.out.println("---");
-						//					for(int i=0;i<3;i++) {
-						//						for(int j=0;j<16;j++)
-						//							System.out.print(selectedChannel.seqNoteLengths[selectedChannel.selectedBank][j][i]);
-						//						System.out.println("aa");
-						//					}
-						//					
-						//					//debug
-						//					System.out.println("---");System.out.println("---");
-						//					for(int i=0;i<3;i++) {
-						//						for(int j=0;j<16;j++)
-						//							System.out.print(this.selectedChannel.sequence[selectedChannel.selectedBank][j][i]);
-						//						System.out.println("SS");
-						//					}
-
 						// redraw the remaining part of the row
 						for(int i=0;i < 16; i++) {
-							if(x_seq + i >= SequencerChannel.MAX_SEQUENCE_LENGTH || x + i > 15)
+							if(x_seq + i >= MAX_SEQUENCE_LENGTH || x + i > 15)
 								break;
 							if(selectedChannel.sequence[selectedChannel.selectedBank][x_seq+i][y_seq] == 0) {
 								if(this.selectedChannel.seqNoteLengths[selectedChannel.selectedBank][x_seq+i][y_seq] == 0) 
@@ -906,30 +874,6 @@ public class Flow implements Page, Serializable {
 	}
 
 	
-	/**
-	 * Flashes LEDs for each sequence value of 2
-	 */
-	private void flashNotes() {
-		int x_seq;
-		int y_seq;
-		if (this.mode == SEQUENCERMODE) {
-			for (int x = 0; x < (this.monome.sizeX); x++) {
-				x_seq = (getSelectedPatternNumber() * (this.monome.sizeX)) + x;
-				for (int y = 0; y < (this.monome.sizeY - 1); y++) {
-					y_seq = (selectedChannel.depth * (this.monome.sizeY - 1)) + y;
-					if (this.selectedChannel.sequence[selectedChannel.selectedBank][x_seq][y_seq] == 1) {
-						if (this.selectedChannel.flashSequence[selectedChannel.selectedBank][x_seq][y_seq] == 0) {
-							this.selectedChannel.flashSequence[selectedChannel.selectedBank][x_seq][y_seq] = 1;
-							flow_led(x, y, this.briNoteOn, this.index);
-						} else {
-							this.selectedChannel.flashSequence[selectedChannel.selectedBank][x_seq][y_seq] = 0;
-							flow_led(x, y, 0, this.index);
-						}
-					}
-				}
-			}
-		}
-	}
 
 	/* (non-Javadoc)
 	 * @see org.monome.pages.Page#handleTick(MidiDevice device)
@@ -938,11 +882,6 @@ public class Flow implements Page, Serializable {
 		
 		// if there are note-off messages scheduled for this time, do that.
 		turnOffScheduledNotes();
-		
-		
-		if (this.tickNum % 3 == 0) {
-			this.flashNotes();
-		}
 		
 		if (this.tickNum >= quantization) {
 			this.tickNum = 0;
@@ -976,9 +915,9 @@ public class Flow implements Page, Serializable {
 							loopChan.sequencePosition = loopChan.patternsStarting[loopChan.playingBank]*this.monome.sizeX;
 						}
 
-						if (loopChan.sequencePosition == SequencerChannel.MAX_SEQUENCE_LENGTH) {
+						if (loopChan.sequencePosition == MAX_SEQUENCE_LENGTH) {
 							loopChan.sequencePosition = 0;
-							System.out.println("Looped over sequence" + selectedChannelNumber + " " + selectedChannel.selectedBank);
+							//System.out.println("Looped over sequence" + selectedChannelNumber + " " + selectedChannel.selectedBank);
 						}
 					}
 				}
@@ -998,21 +937,6 @@ public class Flow implements Page, Serializable {
 				if(this.mode == SEQUENCERMODE) {
 					int col = this.selectedChannel.sequencePosition % (this.monome.sizeX);
 					int x_seq = getSelectedPatternNumber() * (this.monome.sizeX) + col;
-					
-					// this is the old code when the whole column leds were sent in one message
-//					ArrayList<Integer> colArgs = new ArrayList<Integer>();
-//					colArgs.add(col);
-//					for(int i=0;i<this.monome.sizeY;i++) {
-//						if(selectedChannel.sequence[selectedChannel.selectedBank][x_seq][i]>0) { 
-//							colArgs.add(briNoteOn);
-//						} else if(this.selectedChannel.seqNoteLengths[selectedChannel.selectedBank][x_seq][i] > 0) {
-//							colArgs.add(this.briNoteOn);
-//						} else {
-//							colArgs.add(this.briSeqBar);
-//						}
-//					}						
-//					flow_led_col(colArgs, this.index);
-//					
 					this.sequencerModeRedrawCol(col, 1);
 				}
 			}
@@ -1137,9 +1061,9 @@ public class Flow implements Page, Serializable {
 		
 		if(val > 0) {
 			for(int i=0;i<this.monome.sizeY;i++) {
-				if(selectedChannel.sequence[selectedChannel.selectedBank][x_seq][i]>0) { 
+				if(selectedChannel.sequence[selectedChannel.selectedBank][x_seq][yToSeqY(i)]>0) { 
 					flow_led(col, i,briNoteOn, this.index);
-				} else if(this.selectedChannel.seqNoteLengths[selectedChannel.selectedBank][x_seq][i] > 0) {
+				} else if(this.selectedChannel.seqNoteLengths[selectedChannel.selectedBank][x_seq][yToSeqY(i)] > 0) {
 					flow_led(col, i,briNoteOn, this.index);
 				} else {
 					flow_led(col, i,briSeqBar, this.index);
@@ -1148,7 +1072,7 @@ public class Flow implements Page, Serializable {
 		}
 		else if (val == 0) {
 			for (int y = 0; y < (this.monome.sizeY - 1); y++) {
-				int y_seq = (this.selectedChannel.depth * (this.monome.sizeY - 1)) + y;
+				int y_seq =yToSeqY(y);
 				if (this.selectedChannel.sequence[selectedChannel.selectedBank][x_seq][y_seq] > 0) {
 					flow_led(col, y, this.briSeqNote, this.index);
 				} else if(this.selectedChannel.seqNoteLengths[selectedChannel.selectedBank][x_seq][y_seq] > 0) {
@@ -1186,37 +1110,7 @@ public class Flow implements Page, Serializable {
 	}
 	
 	public void stopNotes() {
-//		ShortMessage note_out = new ShortMessage();
-//		for(int ci = 0; ci<NUMBER_OF_CHANNELS; ci++)
-//		{
-//			SequencerChannel loopChan = channels[ci];
-//			loopChan.sequencePosition = 0;
-//			for (int i=0; i < 16; i++) {
-//				if (loopChan.heldNotes[i] == 1) {
-//					loopChan.heldNotes[i] = 0;
-//					int note_num = loopChan.getNoteNumber(i);
-//					try {
-//						note_out.setMessage(ShortMessage.NOTE_OFF, loopChan.midiChannel, note_num, 0);
-//						String[] midiOutOptions = monome.getMidiOutOptions(this.index);
-//						for (int j = 0; j < midiOutOptions.length; j++) {
-//							if (midiOutOptions[j] == null) {
-//								continue;
-//							}
-//							Receiver recv = monome.getMidiReceiver(midiOutOptions[j]);
-//							if (recv != null) {
-//								recv.send(note_out, MidiDeviceFactory.getDevice(recv).getMicrosecondPosition());
-//							}
-//						}
-//					} catch (InvalidMidiDataException e) {
-//						e.printStackTrace();
-//					}				
-//				}
-//			}
-//		}
-		
-//		for(int i=0; i < MAX_LEN_OF_MIDI_SCHEDULER; i++)
-//			midiNoteOffSchedule[i].clear();
-//		midiSchedulerPosition = 0;
+
 	}
 
 	/**
@@ -1234,7 +1128,7 @@ public class Flow implements Page, Serializable {
 		int note_num;
 		int velocity;
 		int midiChannel = chan.midiChannel;
-		for (int y = 0; y < 16; y++) {
+		for (int y = 0; y < SEQUENCE_HEIGHT; y++) {
 		// there used to be a hold mode
 		// now only normal mode 
 				if (chan.sequence[chan.playingBank][seq_pos][y] > 0) {
@@ -1250,9 +1144,9 @@ public class Flow implements Page, Serializable {
 					}
 					try {
 						if (velocity == 0) {
-							//notnecessaryanymore//note_out.setMessage(ShortMessage.NOTE_OFF, midiChannel, note_num, velocity);
 							chan.heldNotes[y] = 0;
 						} else {
+							//System.out.print(y + "-" + note_num);
 							note_out.setMessage(ShortMessage.NOTE_ON, midiChannel, note_num, velocity);
 							chan.heldNotes[y] = 1;
 						}
@@ -1298,7 +1192,7 @@ public class Flow implements Page, Serializable {
 		
 		int note_midi_num;
 		
-		for (int y = 0; y < 16; y++) {
+		for (int y = 0; y < SEQUENCE_HEIGHT; y++) {
 			if (chan.sequence[chan.playingBank][seq_pos][y] > 0) {
 				note_midi_num = chan.getNoteNumber(y);
 				if(value > 0) {
@@ -1316,10 +1210,10 @@ public class Flow implements Page, Serializable {
 		}
 		
 		for (int y = 0; y < 16; y++) {
-			if (chan.sequence[chan.playingBank][seq_pos][y] > 0) {
-				flow_led(y, rowSwap[y], value, this.index);
+			int seqy = yToSeqY(y);
+			if (chan.sequence[chan.playingBank][seq_pos][seqy] > 0) {
+				flow_led(y, seqYtoY(rowSwap[seqy]), value, this.index);
 			}
-				
 		}
 	}
 
@@ -1423,10 +1317,10 @@ public class Flow implements Page, Serializable {
 	 */
 	
 	public void setNoteValue(int num, int value) {
-		selectedChannel.noteNumbers[num] = value;
-		if (num == gui.rowCB.getSelectedIndex()) {
-			gui.noteTF.setText(this.numberToMidiNote(value));
-		}
+//		selectedChannel.noteNumbers[num] = value;
+//		if (num == gui.rowCB.getSelectedIndex()) {
+//			gui.noteTF.setText(this.numberToMidiNote(value));
+//		}
 	}
 
 	/* (non-Javadoc)
@@ -1452,7 +1346,7 @@ public class Flow implements Page, Serializable {
 			int y;
 			for (int x = 0; x < (this.monome.sizeX); x++) {
 				for (y = 0; y < (this.monome.sizeY - 1); y++) {
-					if(y == this.rowSwap[x])
+					if(y == seqYtoY(this.rowSwap[yToSeqY(x)]))
 						flow_led(x, y, this.briMatrixDefault, this.index);
 					else
 						flow_led(x, y, 0, this.index);
@@ -1502,9 +1396,9 @@ public class Flow implements Page, Serializable {
 		// redrawDevice if we're in sequence mode
 		} else if(this.mode == this.SEQUENCERMODE) {
 			for (int x = 0; x < (this.monome.sizeX); x++) {
-				x_seq = (getSelectedPatternNumber() * (this.monome.sizeX)) + x;
+				x_seq = xToSeqX(x);
 				for (int y = 0; y < (this.monome.sizeY - 1); y++) {
-					y_seq = (this.selectedChannel.depth * (this.monome.sizeY - 1)) + y;
+					y_seq = yToSeqY(y);
 					int value = 0;
 					if (this.selectedChannel.sequence[selectedChannel.selectedBank][x_seq][y_seq] > 0) {
 						value = this.briSeqNote;
@@ -1528,24 +1422,10 @@ public class Flow implements Page, Serializable {
 	 * Redraws the bottom row of the sequencer page on the monome.
 	 */
 	public void sequencerRedrawBottomRow() {
-			
-		// bottom row redraw in keyboard mode means just update the keyboard mode button
-//		if(this.mode == KEYBOARDMODE) {
-//			flow_led(14, this.monome.sizeY-1, (this.mode == KEYBOARDMODE ? 1 : 0)*briOn, this.index);
-//		}
-//		else if(this.mode == MATRIXMODE) {
-//			flow_led(13, this.monome.sizeY-1, (this.mode == MATRIXMODE ? 1 : 0)*briOn, this.index);
-//		}
-		// redrawDevice this way if we're in bank mode
 		if (this.mode == BANKMODE) {
 			for (int x = 0; x < (this.monome.sizeX); x++) {
-				if (x < 4) {
-					if (this.selectedChannel.depth == x) {
-						flow_led(x, (this.monome.sizeY - 1), this.briOn, this.index);
-					} else {
+				if (x < 4) 
 						flow_led(x, (this.monome.sizeY - 1) , 0, this.index);
-					}
-				}
 				else if (x == ButtonNoClear) {
 					flow_led(x, (this.monome.sizeY - 1), this.bankClearMode*this.briOn, this.index);
 				}
@@ -1565,13 +1445,6 @@ public class Flow implements Page, Serializable {
 			// bottom row is this way if we're not in bank mode (usually sequencer mode)
 		} else {
 			for (int x = 0; x < (this.monome.sizeX); x++) {
-//				if (x < 4) {
-//					if (this.pattern == x) {
-//						flow_led(x, (this.monome.sizeY - 1), this.briOn, this.index);
-//					} else {
-//						flow_led(x, (this.monome.sizeY - 1), 0, this.index);
-//					}
-//				}
 				if(x == ButtonNoPattern) {
 					if(topLayerMode == TopLayerPatternMode)
 						flow_led(x, (this.monome.sizeY - 1), this.briOn, this.index);
@@ -1592,8 +1465,6 @@ public class Flow implements Page, Serializable {
 				}
 			}
 		}
-		
-		
 		
 	}
 	
@@ -1670,16 +1541,16 @@ public class Flow implements Page, Serializable {
 	 */
 	private void alterSequencerPattern() {
 		// randomly turn things on or off
-		for (int x = 0; x < this.selectedChannel.MAX_SEQUENCE_LENGTH; x++) {
-			for (int y = 0; y < 15; y++) {
+		for (int x = 0; x < MAX_SEQUENCE_LENGTH; x++) {
+			for (int y = 0; y < SEQUENCE_HEIGHT; y++) {
 				if (selectedChannel.sequence[selectedChannel.selectedBank][x][y] > 0) {
 					if (generator.nextInt(30) == 1) {
-						selectedChannel.sequence[selectedChannel.selectedBank][x][y] = generator.nextInt(3);
+						selectedChannel.sequence[selectedChannel.selectedBank][x][y] = generator.nextInt(127);
 					}
 				}
 				if (selectedChannel.sequence[selectedChannel.selectedBank][x][y] == 0) {
 					if (generator.nextInt(150) == 1) {
-						selectedChannel.sequence[selectedChannel.selectedBank][x][y] = generator.nextInt(3);
+						selectedChannel.sequence[selectedChannel.selectedBank][x][y] = generator.nextInt(127);
 					}
 				}
 
@@ -1699,113 +1570,64 @@ public class Flow implements Page, Serializable {
 			holdmode = 1;
 		}
 		xml.append("      <holdmode>" + holdmode + "</holdmode>\n");
-		xml.append("      <banksize>" + this.selectedChannel.MAX_SEQUENCE_LENGTH + "</banksize>\n");
+		xml.append("      <banksize>" + MAX_SEQUENCE_LENGTH + "</banksize>\n");
 		xml.append("      <midichannel>" + this.selectedChannel.midiChannel + "</midichannel>\n");
 		xml.append("      <sequencerQuantization>" + this.quantization + "</sequencerQuantization>\n");
 		xml.append("      <muteMode>" + this.muteMode + "</muteMode>\n");
 		xml.append("      <velocityMode>" + this.velocityMode + "</velocityMode>\n");
-		for (int i=0; i < 16; i++) {
+		for (int i=0; i < SEQUENCE_HEIGHT; i++) {
 			xml.append("      <row>" + String.valueOf(this.selectedChannel.noteNumbers[i]) + "</row>\n");
 		}
-		for (int i=0; i < SequencerChannel.NUMBER_OF_BANKS; i++) {
-			xml.append("      <sequence>");
-			for (int j=0; j < 64; j++) {
-				for (int k=0; k < 16; k++) {
-					xml.append(this.selectedChannel.sequence[i][j][k]);	
+		for(int chnum = 0; chnum < NUMBER_OF_CHANNELS; chnum++) {
+			for (int i=0; i < NUMBER_OF_BANKS; i++) {
+				xml.append("      <sequence>");
+				for (int j=0; j < MAX_SEQUENCE_LENGTH; j++) {
+					for (int k=0; k < SEQUENCE_HEIGHT; k++) {
+						xml.append(this.channels[0].sequence[i][j][k]);
+						xml.append(" ");
+						xml.append(this.channels[0].seqNoteLengths[i][j][k]);
+						xml.append(" ");
+					}
 				}
+				xml.append("</sequence>\n");
 			}
-			xml.append("</sequence>\n");
 		}
 		return xml.toString();
 	}
 
-	/* (non-Javadoc)
-	 * @see org.monome.pages.Page#actionPerformed(java.awt.event.ActionEvent)
-	 */
-	/*
-	public void actionPerformed(ActionEvent e) {
-		System.out.println(e.getActionCommand());
-		if (e.getActionCommand().equals("Set MIDI Output")) {
-			String[] midiOutOptions = this.monome.getMidiOutOptions();
-			String deviceName = (String)JOptionPane.showInputDialog(
-					Main.getDesktopPane(),
-					"Choose a MIDI Output to use",
-					"Set MIDI Output",
-					JOptionPane.PLAIN_MESSAGE,
-					null,
-					midiOutOptions,
-					"");
-
-			if (deviceName == null) {
-				return;
-			}
-
-			this.addMidiOutDevice(deviceName);
-		}
-		if (e.getActionCommand().equals("Update Preferences")) {
-			this.noteNumbers[0] = this.noteToMidiNumber(this.row1tf.getText());
-			this.noteNumbers[1] = this.noteToMidiNumber(this.row2tf.getText());
-			this.noteNumbers[2] = this.noteToMidiNumber(this.row3tf.getText());
-			this.noteNumbers[3] = this.noteToMidiNumber(this.row4tf.getText());
-			this.noteNumbers[4] = this.noteToMidiNumber(this.row5tf.getText());
-			this.noteNumbers[5] = this.noteToMidiNumber(this.row6tf.getText());
-			this.noteNumbers[6] = this.noteToMidiNumber(this.row7tf.getText());
-			this.noteNumbers[7] = this.noteToMidiNumber(this.row8tf.getText());
-			this.noteNumbers[8] = this.noteToMidiNumber(this.row9tf.getText());
-			this.noteNumbers[9] = this.noteToMidiNumber(this.row10tf.getText());
-			this.noteNumbers[10] = this.noteToMidiNumber(this.row11tf.getText());
-			this.noteNumbers[11] = this.noteToMidiNumber(this.row12tf.getText());
-			this.noteNumbers[12] = this.noteToMidiNumber(this.row13tf.getText());
-			this.noteNumbers[13] = this.noteToMidiNumber(this.row14tf.getText());
-			this.noteNumbers[14] = this.noteToMidiNumber(this.row15tf.getText());
-			this.midiChannel  = this.channelTF.getText();
-			try {
-				this.setBankSize(Integer.parseInt(this.bankSizeTF.getText()));
-			} catch (NumberFormatException nfe) {
-				nfe.printStackTrace();
-			}
-		}
-	}
-	*/
-	
-//	public void setBankSize(int banksize) {
-//		if (banksize > 64) {
-//			banksize = 64;
-//		} else if (banksize < 1) {
-//			banksize = 1;
-//		}
-//		this.selectedChannel.sequencePosition = 0;
-//		this.selectedChannel.bankSize = banksize;
-//		this.gui.bankSizeTF.setText(String.valueOf(banksize));
-//	}
 
 	/**
 	 * Loads a sequence from a configuration file.  Called from GUI on open configuration action.
 	 * 
-	 * @param l
+	 * @param chnum
+	 * @param bnum
 	 * @param sequence2
 	 */
-	public void setSequence(int l, String sequence2) {
+	public void setSequence(int chnum, int bnum, String sequence2) {
 		int row = 0;
 		int pos = 0;
-		for (int i=0; i < sequence2.length(); i++) {
+		
+		//System.out.println(sequence2);
+		//System.out.println("");
+		Scanner scan = new Scanner(sequence2);
+		
+		for (int i=0; i < MAX_SEQUENCE_LENGTH*SEQUENCE_HEIGHT; i++) {
 
-			if (row == 16) {
+			if (row == SEQUENCE_HEIGHT) {
 				row = 0;
 				pos++;
 			}
-
-			if (sequence2.charAt(i) == '0') {
-				this.selectedChannel.sequence[l][pos][row] = 0;
-			} else if (sequence2.charAt(i) == '1') {
-				this.selectedChannel.sequence[l][pos][row] = 1;
-			} else if (sequence2.charAt(i) == '2') {
-				this.selectedChannel.sequence[l][pos][row] = 2;
-			}
+			
+			this.channels[chnum].sequence[bnum][pos][row] = scan.nextInt();
+			this.channels[chnum].seqNoteLengths[bnum][pos][row] = scan.nextInt();
+			//System.out.print(channels[0].sequence[l][pos][row] + " ");
 			row++;
 		}
 	}
 
+	
+		
+	
 	/* (non-Javadoc)
 	 * @see org.monome.pages.Page#getCacheDisabled()
 	 */
@@ -1872,12 +1694,14 @@ public class Flow implements Page, Serializable {
 			this.setNoteValue(l, Integer.parseInt(midiNote));		
 		}		
 		
-		NodeList seqNL = pageElement.getElementsByTagName("sequence");		
-		for (int l=0; l < seqNL.getLength(); l++) {		
-			Element el = (Element) seqNL.item(l);		
-			NodeList nl = el.getChildNodes();		
-			String sequence = ((Node) nl.item(0)).getNodeValue();		
-			this.setSequence(l, sequence);		
+		NodeList seqNL = pageElement.getElementsByTagName("sequence");
+		for(int chnum=0; chnum < NUMBER_OF_CHANNELS; chnum++) {
+			for (int bnum=0; bnum < NUMBER_OF_BANKS; bnum++) {
+				Element el = (Element) seqNL.item(bnum);		
+				NodeList nl = el.getChildNodes();		
+				String sequence = ((Node) nl.item(0)).getNodeValue();		
+				this.setSequence(chnum, bnum, sequence);		
+			}
 		}
 		this.redrawDevice();
 	}
@@ -2117,8 +1941,8 @@ public class Flow implements Page, Serializable {
 	 */
 	
 	public void copyBank(int srcChannel, int srcBank, int dstChannel, int dstBank) {
-		for (int x = 0; x < 64; x++) { //replace with SequencerChannel.MAX_SEQUENCE_LENGTH
-			for (int y = 0; y < 16; y++) {
+		for (int x = 0; x < MAX_SEQUENCE_LENGTH; x++) { //replace with SequencerChannel.MAX_SEQUENCE_LENGTH
+			for (int y = 0; y < SEQUENCE_HEIGHT; y++) {
 				channels[dstChannel].sequence[dstBank][x][y] = channels[srcChannel].sequence[srcBank][x][y];
 				channels[dstChannel].seqNoteLengths[dstBank][x][y] = channels[srcChannel].seqNoteLengths[srcBank][x][y];
 			}
@@ -2126,13 +1950,28 @@ public class Flow implements Page, Serializable {
 	}
 
 	
+	// converts x coord on monome to coord on sequence
+	public int xToSeqX(int x) {
+		return selectedChannel.patternsSelected[selectedChannel.selectedBank]*this.monome.sizeX + x;
+	}
+	
+	// converts y coord on monome to y coord on sequence
+	public int yToSeqY(int y) {
+		return selectedChannel.depth*DEPTHINCREMENT + y;
+	}
+	
+	public int seqYtoY(int seqy) {
+		if(seqy<yToSeqY(0) || seqy+1 > yToSeqY(this.monome.sizeY-1)) 
+			return -1;
+		else 
+			return seqy - yToSeqY(0); 
+	}
+	
 	
 	// sequencer channels, these are the columns of the bank mode
 		// a single one can be played at a time, much like ableton live's clip launcher
 		public class SequencerChannel {
 			
-			public static final int MAX_SEQUENCE_LENGTH = 256;
-			public static final int NUMBER_OF_BANKS = 18;
 			
 			private MonomeConfiguration monome;
 			private int index;
@@ -2147,9 +1986,9 @@ public class Flow implements Page, Serializable {
 			/**
 			 * selectedChannel.sequence[bank_number][width][height] - the currently programmed sequences 
 			 */
-			private int[][][] sequence = new int[NUMBER_OF_BANKS][MAX_SEQUENCE_LENGTH][16];
+			private int[][][] sequence = new int[NUMBER_OF_BANKS][MAX_SEQUENCE_LENGTH][SEQUENCE_HEIGHT];
 			
-			private int[][][] seqNoteLengths = new int[NUMBER_OF_BANKS][MAX_SEQUENCE_LENGTH][16]; // in steps
+			private int[][][] seqNoteLengths = new int[NUMBER_OF_BANKS][MAX_SEQUENCE_LENGTH][SEQUENCE_HEIGHT]; // in steps
 			
 			private int selectedBank;
 			private int playingBank;
@@ -2162,26 +2001,21 @@ public class Flow implements Page, Serializable {
 			private int sequencePosition = 0;
 
 			/**
-			 * flashSequencep[bank_number][width][height] - the flashing state of leds 
-			 */
-			private int[][][] flashSequence = new int[NUMBER_OF_BANKS][MAX_SEQUENCE_LENGTH][16];
-			
-			/**
 			 * heldNotes[note] - whether or not each note is currently held 
 			 */
-			private int[] heldNotes = new int[16];
+			private int[] heldNotes = new int[SEQUENCE_HEIGHT];
 			
 			/**
 			 * noteNumbers[row] - midi note numbers that are sent for each row in the sequencer
 			 */
-			public int[] noteNumbers = new int[16];
+			public int[] noteNumbers = new int[SEQUENCE_HEIGHT];
 			
 			// keyboard mode scale data
 			private int rootNoteX = 2; //placement of the root note in keyboard mode
 			private int rootNoteY = 14;
 			public int rowOffset = 7; //in number of notes in scale not semitones!
 			
-			public int rootNoteMidiNumber = 36; // default is C1
+			public int rootNoteMidiNumber = 24; // default is C1
 			public int[] scaleNoteDiffsToRoot = {0,2,4,5,7,9,11,-99,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}; // default is major 
 			public int scaleLength = 7;
 			public int scaleTotalInSemitones = 12;
@@ -2192,6 +2026,7 @@ public class Flow implements Page, Serializable {
 			 * 64/40h/128 only, 1 = edit the 2nd page of sequence lanes 
 			 */
 			private int depth = 0;
+			
 			
 			/**
 			 * The size of each bank in steps
@@ -2221,7 +2056,7 @@ public class Flow implements Page, Serializable {
 				
 				for(int i=0;i<NUMBER_OF_BANKS;i++) {
 	        		for(int j=0; j<MAX_SEQUENCE_LENGTH;j++)
-	        			for(int k=0;k<16;k++) {
+	        			for(int k=0;k<SEQUENCE_HEIGHT;k++) {
 	        				seqNoteLengths[i][j][k] = 0;
 	        				sequence[i][j][k] = 0; 
 	        			}
@@ -2231,25 +2066,18 @@ public class Flow implements Page, Serializable {
 	        		patternsEnding[i] = 1; // one more than the last pattern to be played
 				}
 				
-				this.noteNumbers[0] = Flow.noteToMidiNumber("C-1");
-				this.noteNumbers[1] = Flow.noteToMidiNumber("D-1");
-				this.noteNumbers[2] = Flow.noteToMidiNumber("E-1");
-				this.noteNumbers[3] = Flow.noteToMidiNumber("F-1");
-				this.noteNumbers[4] = Flow.noteToMidiNumber("G-1");
-				this.noteNumbers[5] = Flow.noteToMidiNumber("A-1");
-				this.noteNumbers[6] = Flow.noteToMidiNumber("B-1");
-				this.noteNumbers[7] = Flow.noteToMidiNumber("C-2");
-				this.noteNumbers[8] = Flow.noteToMidiNumber("D-2");
-				this.noteNumbers[9] = Flow.noteToMidiNumber("E-2");
-				this.noteNumbers[10] = Flow.noteToMidiNumber("F-2");
-				this.noteNumbers[11] = Flow.noteToMidiNumber("G-2");
-				this.noteNumbers[12] = Flow.noteToMidiNumber("A-2");
-				this.noteNumbers[13] = Flow.noteToMidiNumber("B-2");
-				this.noteNumbers[14] = Flow.noteToMidiNumber("C-3");
-				this.noteNumbers[15] = Flow.noteToMidiNumber("D-3");
 				
-				
-				
+				int seqy = 0;
+				outerloop:
+				for(int oct=0;oct<100;oct++) {
+					for(int i=0;i<scaleLength;i++) {
+						this.noteNumbers[seqy] = rootNoteMidiNumber + oct*scaleTotalInSemitones + scaleNoteDiffsToRoot[i];
+						//System.out.println(seqy + " " + noteNumbers[seqy]);
+						seqy++;
+						if(seqy>=SEQUENCE_HEIGHT)
+							break outerloop;
+					}
+				}				
 			}
 
 			/**
@@ -2259,6 +2087,7 @@ public class Flow implements Page, Serializable {
 			 * @return The MIDI note number assigned to that row / sequence lane
 			 */
 			public int getNoteNumber(int y) {
+				//System.out.println(y + " rsto " + rowSwap[y] + "  noteto " + noteNumbers[rowSwap[y]]);
 				return noteNumbers[rowSwap[y]];
 			}
 
@@ -2269,9 +2098,10 @@ public class Flow implements Page, Serializable {
 			 * @param dst The bank number to clear.
 			 */
 			public void clearBank(int dst) {
-				for (int x = 0; x < 64; x++) {
-					for (int y = 0; y < 16; y++) {
+				for (int x = 0; x < MAX_SEQUENCE_LENGTH; x++) {
+					for (int y = 0; y < SEQUENCE_HEIGHT; y++) {
 						sequence[dst][x][y] = 0;
+						seqNoteLengths[dst][x][y] = 0;
 					}
 				}
 			}
@@ -2282,10 +2112,11 @@ public class Flow implements Page, Serializable {
 			 * @param dst destination pattern to clear (0-3)
 			 */
 			private void clearPattern(int dst) {
-				for (int x = 0; x < (this.monome.sizeX); x++) {
-					for (int y = 0; y < 15; y++) {
+				for (int x = 0; x < this.monome.sizeX; x++) {
+					for (int y = 0; y < SEQUENCE_HEIGHT; y++) {
 						int x_dst = x + (dst * (this.monome.sizeX));
 						sequence[this.selectedBank][x_dst][y] = 0;
+						seqNoteLengths[this.selectedBank][x_dst][y] = 0;
 					}
 				}
 			}
@@ -2299,7 +2130,7 @@ public class Flow implements Page, Serializable {
 			 */
 			private void copyPattern(int src, int dst) {
 
-				for (int y = 0; y < 15; y++) {
+				for (int y = 0; y < SEQUENCE_HEIGHT; y++) {
 					for (int x = 0; x < (this.monome.sizeX); x++) {
 						int x_src = x + (src * (this.monome.sizeX));
 						int x_dst = x + (dst * (this.monome.sizeX));
@@ -2308,7 +2139,6 @@ public class Flow implements Page, Serializable {
 					}
 					reGenerateNoteLengthArrayRow(selectedBank, y, dst * (this.monome.sizeX), ((dst+1) * (this.monome.sizeX)));
 				}
-				
 			}
 
 			
@@ -2339,7 +2169,7 @@ public class Flow implements Page, Serializable {
 					}
 				}
 				
-				if(xend == this.MAX_SEQUENCE_LENGTH) 
+				if(xend == MAX_SEQUENCE_LENGTH) 
 					return;
 				
 				// keep going if there is still a note to continue
@@ -2411,6 +2241,13 @@ public class Flow implements Page, Serializable {
 	
 	public void flow_led_col(ArrayList<Integer> intArgs, int index) {
 		this.monome.vari_led_col(intArgs, index);
+	}
+	
+	public void superdebug() {
+		for(int i=0;i<SEQUENCE_HEIGHT;i++)
+			System.out.println(selectedChannel.noteNumbers[i]);
+		for(int i=0;i<4;i++)
+			System.out.println(channels[i].depth);
 	}
 	
 	
