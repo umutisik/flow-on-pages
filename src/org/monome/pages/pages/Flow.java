@@ -1316,7 +1316,8 @@ public class Flow implements Page, Serializable {
 	 * @param value The MIDI note value to set the row to
 	 */
 	
-	public void setNoteValue(int num, int value) {
+	public void setNoteValue(int chnum, int rownum, int value) {
+		this.channels[chnum].noteNumbers[rownum] = value;
 //		selectedChannel.noteNumbers[num] = value;
 //		if (num == gui.rowCB.getSelectedIndex()) {
 //			gui.noteTF.setText(this.numberToMidiNote(value));
@@ -1575,8 +1576,10 @@ public class Flow implements Page, Serializable {
 		xml.append("      <sequencerQuantization>" + this.quantization + "</sequencerQuantization>\n");
 		xml.append("      <muteMode>" + this.muteMode + "</muteMode>\n");
 		xml.append("      <velocityMode>" + this.velocityMode + "</velocityMode>\n");
-		for (int i=0; i < SEQUENCE_HEIGHT; i++) {
-			xml.append("      <row>" + String.valueOf(this.selectedChannel.noteNumbers[i]) + "</row>\n");
+		for(int chnum = 0; chnum < NUMBER_OF_CHANNELS; chnum++) {
+			for (int i=0; i < SEQUENCE_HEIGHT; i++) {
+				xml.append("      <row>" + String.valueOf(this.channels[chnum].noteNumbers[i]) + "</row>\n");
+			}
 		}
 		for(int chnum = 0; chnum < NUMBER_OF_CHANNELS; chnum++) {
 			for (int i=0; i < NUMBER_OF_BANKS; i++) {
@@ -1687,11 +1690,14 @@ public class Flow implements Page, Serializable {
 		}
 		
 		NodeList rowNL = pageElement.getElementsByTagName("row");		
-		for (int l=0; l < rowNL.getLength(); l++) {		
-			Element el = (Element) rowNL.item(l);		
-			NodeList nl = el.getChildNodes();		
-			String midiNote = ((Node) nl.item(0)).getNodeValue();		
-			this.setNoteValue(l, Integer.parseInt(midiNote));		
+		for(int chnum=0; chnum < NUMBER_OF_CHANNELS; chnum++) {
+			for(int rownum=0; rownum<SEQUENCE_HEIGHT; rownum++) {
+				int l=chnum*SEQUENCE_HEIGHT + rownum;
+				Element el = (Element) rowNL.item(l);		
+				NodeList nl = el.getChildNodes();		
+				String midiNote = ((Node) nl.item(0)).getNodeValue();		
+				this.setNoteValue(chnum, rownum, Integer.parseInt(midiNote));	
+			}
 		}		
 		
 		NodeList seqNL = pageElement.getElementsByTagName("sequence");
@@ -2025,7 +2031,7 @@ public class Flow implements Page, Serializable {
 			/**
 			 * 64/40h/128 only, 1 = edit the 2nd page of sequence lanes 
 			 */
-			private int depth = 0;
+			private int depth = 1;
 			
 			
 			/**
