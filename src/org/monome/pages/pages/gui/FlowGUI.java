@@ -34,19 +34,7 @@ public class FlowGUI extends JPanel implements Serializable {
 	private JButton generateScaleBtn;
 	private JLabel channelLBL = null;
 	
-	private String[] scaleChoices = { "Major", "Minor", "Chromatic", "Drums" };
-	// the jump in semitones between notes in the scale, automatically cycles before the -99
-	// the scale is kept in a different format in flow.java, it is converted to it when it is generated here
-	private int[][] scaleJumps = { {2,2,1,2,2,2,1,-99,0,0,0,0,0,0,0,0,0}, 
-								   {2,1,2,2,1,2,2,-99,0,0,0,0,0,0,0,0,0}, 
-								   {1,1,1,1,1,1,1,1,1,1,1,1,-99,0,0,0,0},
-								   {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,-99}
-								 };
 	
-	// this is a little offset, added so that when depth=1 the bottom row aligns. it records where the scale starts
-	// i.e. how many rows do you need to move things up so that at depth = 1 i.e. 7 rows up, the root note aligns
-	private int[] scaleInitialIndex = {0,0,0,0};
-	private int[] scaleSeminoteOffset = {0,0,5,5};
 	
 	/**
 	 * This is the default constructor
@@ -84,8 +72,8 @@ public class FlowGUI extends JPanel implements Serializable {
  		this.add(getGenerateScaleBtn(), null);
 //		
 		setName("Flow Page");
-		for (int i = 0; i < scaleChoices.length; i++){
-			scaleCB.addItem(scaleChoices[i]);
+		for (int i = 0; i < page.scaleChoices.length; i++){
+			scaleCB.addItem(page.scaleChoices[i]);
 		}
 		for(int i=0; i<16; i++)
 		{
@@ -98,8 +86,7 @@ public class FlowGUI extends JPanel implements Serializable {
 			keyboardRowOffsetCB.addItem(Integer.toString(i));
 		}
 		keyboardRowOffsetCB.setSelectedIndex(7);
-		
-		setScaleForKeyboardMode();
+
 	}
 	
 	public void setName(String name) {
@@ -149,7 +136,10 @@ public class FlowGUI extends JPanel implements Serializable {
 			channelCB.addActionListener(new java.awt.event.ActionListener() {
 				public void actionPerformed(java.awt.event.ActionEvent e) {
 					int index = channelCB.getSelectedIndex();
-					// do something with the selected channel
+					// load up selected channel's information
+					scaleCB.setSelectedIndex(page.channels[index].selectedScaleIndex);
+					rootTF.setText(page.channels[index].rootNoteText);
+					keyboardRowOffsetCB.setSelectedIndex(page.channels[index].keyboardRowOffset);
 				}
 			});
 		}
@@ -311,38 +301,15 @@ public class FlowGUI extends JPanel implements Serializable {
 			generateScaleBtn.addActionListener(new java.awt.event.ActionListener() {
 				public void actionPerformed(java.awt.event.ActionEvent e) {
 					
+					int guiSelectedChannelIndex = channelCB.getSelectedIndex();
 					
 					// start with the first row and set it to the root 
 					// and for 15 more rows, set the note number according to the scale selected
-					int selectedScaleIndex = scaleCB.getSelectedIndex();
-					int guiSelectedChannelIndex = channelCB.getSelectedIndex();
-					String rootNoteText = rootTF.getText();
-					int rootNoteNumber = page.noteToMidiNumber(rootNoteText)-12;
+					page.channels[guiSelectedChannelIndex].selectedScaleIndex = scaleCB.getSelectedIndex();
 					
-					int scaleIndex=scaleInitialIndex[selectedScaleIndex];
-					page.channels[guiSelectedChannelIndex].noteNumbers[0] = rootNoteNumber+scaleSeminoteOffset[selectedScaleIndex];
-					int rowIndex=1;
-					while(rowIndex<page.SEQUENCE_HEIGHT) {
-						page.channels[guiSelectedChannelIndex].noteNumbers[rowIndex] = page.channels[guiSelectedChannelIndex].noteNumbers[rowIndex-1] + scaleJumps[selectedScaleIndex][scaleIndex];
-						rowIndex++;
-						scaleIndex++;
-						if(scaleJumps[selectedScaleIndex][scaleIndex]==-99)
-							scaleIndex=0;
-					};
+					page.channels[guiSelectedChannelIndex].rootNoteText = rootTF.getText();
 					
-					// is drums? (notes don't light up for drums in keyboard mode)
-					if(selectedScaleIndex == 3) {
-						page.channels[guiSelectedChannelIndex].isDrums = true;
-					}
-					
-					// set the scale for the keyboard mode
-					setScaleForKeyboardMode();
-					
-					// update the selected row's value in the text field
-					//String noteVal = page.numberToMidiNote(page.channels[guiSelectedChannelIndex].noteNumbers[rowCB.getSelectedIndex()]);
-					//noteTF.setText(noteVal);
-					
-					page.redrawDevice();
+					page.channels[guiSelectedChannelIndex].setScale();
 				}
 			});
 		}
@@ -369,33 +336,5 @@ public class FlowGUI extends JPanel implements Serializable {
 //		return quantCB;
 //	}
 //	
-	
-	// warning: the keyboard mode and the sequencer mode scale setting is done separately
-	private void setScaleForKeyboardMode() {
-		int selectedScaleIndex = scaleCB.getSelectedIndex();
-		String rootNoteText = rootTF.getText();
-		int rootNoteNumber = page.noteToMidiNumber(rootNoteText);
-		int scaleIndex=0;
-		int diffsCount=0;
-		
-		int guiSelectedChannelIndex = channelCB.getSelectedIndex();
-				
-		page.channels[guiSelectedChannelIndex].rootNoteMidiNumber = rootNoteNumber;
-		// normalize the root note so that the bottom rows are still low
-		while(page.channels[guiSelectedChannelIndex].rootNoteMidiNumber>47)
-			page.channels[guiSelectedChannelIndex].rootNoteMidiNumber -= 12;
-		
-		do {
-			page.channels[guiSelectedChannelIndex].scaleNoteDiffsToRoot[scaleIndex] = diffsCount; 
-			diffsCount += this.scaleJumps[selectedScaleIndex][scaleIndex];
-			scaleIndex++;
-		} while(this.scaleJumps[selectedScaleIndex][scaleIndex] != -99);
-		
-		page.channels[guiSelectedChannelIndex].scaleLength = scaleIndex;
-		page.channels[guiSelectedChannelIndex].scaleTotalInSemitones = diffsCount;
-		
-		page.generateIsMidiNumberInScale(page.channels[guiSelectedChannelIndex]);
-
-	}
 
 }  //  @jve:decl-index=0:visual-constraint="10,10"

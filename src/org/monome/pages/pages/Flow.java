@@ -7,6 +7,9 @@ import java.util.Random;
 import java.util.Scanner;
 
 
+
+
+
 import javax.sound.midi.InvalidMidiDataException;
 import javax.sound.midi.MidiDevice;
 import javax.sound.midi.MidiMessage;
@@ -87,11 +90,26 @@ public class Flow implements Page, Serializable {
 	public int ButtonNoClear = 5;
 	// 0
 	
-	
-	
 	public static final int MAX_SEQUENCE_LENGTH = 256;
 	public static final int NUMBER_OF_BANKS = 18;
 	public static final int SEQUENCE_HEIGHT = 51;
+	
+	// constant scale information:
+	public static final String[] scaleChoices = { "Major", "Minor", "Chromatic", "Drums" };
+	// the jump in semitones between notes in the scale, automatically cycles before the -99
+	// the scale is kept in a different format in flow.java, it is converted to it when it is generated here
+	public static final int[][] scaleJumps = { {2,2,1,2,2,2,1,-99,0,0,0,0,0,0,0,0,0}, 
+								   {2,1,2,2,1,2,2,-99,0,0,0,0,0,0,0,0,0}, 
+								   {1,1,1,1,1,1,1,1,1,1,1,1,-99,0,0,0,0},
+								   {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,-99}
+								 };
+	
+	// this is a little offset, added so that when depth=1 the bottom row aligns. it records where the scale starts
+	// i.e. how many rows do you need to move things up so that at depth = 1 i.e. 7 rows up, the root note aligns
+	public static final int[] scaleInitialIndex = {0,0,0,0};
+	public static final int[] scaleSeminoteOffset = {0,0,5,5};
+	
+	
 	
 	
 	
@@ -1961,6 +1979,12 @@ public class Flow implements Page, Serializable {
 	}
 	
 	
+	
+
+	/////////
+	/////////
+	/////////
+	/////////
 	// sequencer channels, these are the columns of the bank mode
 		// a single one can be played at a time, much like ableton live's clip launcher
 		public class SequencerChannel {
@@ -1988,6 +2012,11 @@ public class Flow implements Page, Serializable {
 			
 			private int newNoteLength = 1; // in number of steps
 
+			public int selectedScaleIndex;
+			public String rootNoteText = "C-1";
+			public int rootNoteNumber = 24; //this and the above 'text' now differ by 12 semitones! this is done to make it so that the root note appears on the first row in depth 1
+			public int keyboardRowOffset = 7; 
+			
 			/**
 			 * The current position in the sequence (from 0 to 31)
 			 */
@@ -2008,6 +2037,7 @@ public class Flow implements Page, Serializable {
 			private int rootNoteY = 14;
 			public int rowOffset = 7; //in number of notes in scale not semitones!
 			
+			// these are 
 			public int rootNoteMidiNumber = 24; // default is C1
 			public int[] scaleNoteDiffsToRoot = {0,2,4,5,7,9,11,-99,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}; // default is major 
 			public int scaleLength = 7;
@@ -2179,7 +2209,60 @@ public class Flow implements Page, Serializable {
 				}
 					
 			}
-	
+
+			public void setScale() {
+				rootNoteNumber = noteToMidiNumber(rootNoteText)-12;
+				
+				int scaleIndex=scaleInitialIndex[selectedScaleIndex];
+				this.noteNumbers[0] = rootNoteNumber+scaleSeminoteOffset[selectedScaleIndex];
+				int rowIndex=1;
+				while(rowIndex<SEQUENCE_HEIGHT) {
+					this.noteNumbers[rowIndex] = this.noteNumbers[rowIndex-1] + scaleJumps[selectedScaleIndex][scaleIndex];
+					rowIndex++;
+					scaleIndex++;
+					if(scaleJumps[selectedScaleIndex][scaleIndex]==-99)
+						scaleIndex=0;
+				};
+				
+				// is drums? (notes don't light up for drums in keyboard mode)
+				if(selectedScaleIndex == 3) {
+					this.isDrums = true;
+				}
+				
+				// set the scale for the keyboard mode
+				setScaleForKeyboardMode();
+				
+				// update the selected row's value in the text field
+				//String noteVal = page.numberToMidiNote(page.channels[guiSelectedChannelIndex].noteNumbers[rowCB.getSelectedIndex()]);
+				//noteTF.setText(noteVal);
+				
+				redrawDevice();
+			}
+			
+			private void setScaleForKeyboardMode() {
+				int scaleIndex=0;
+				int diffsCount=0;
+				
+				this.rootNoteMidiNumber = rootNoteNumber;
+				// normalize the root note so that the bottom rows are still low
+				while(this.rootNoteMidiNumber>47)
+					this.rootNoteMidiNumber -= 12;
+				
+				do {
+					this.scaleNoteDiffsToRoot[scaleIndex] = diffsCount; 
+					diffsCount += scaleJumps[selectedScaleIndex][scaleIndex];
+					scaleIndex++;
+				} while(scaleJumps[selectedScaleIndex][scaleIndex] != -99);
+				
+				this.scaleLength = scaleIndex;
+				this.scaleTotalInSemitones = diffsCount;
+				
+				generateIsMidiNumberInScale(this);
+
+			}
+
+			
+			
 			public int getPlayingPatternEnding() {
 				return patternsEnding[selectedChannel.playingBank];
 			}
