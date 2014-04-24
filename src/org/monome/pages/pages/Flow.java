@@ -1593,6 +1593,7 @@ public class Flow implements Page, Serializable {
 		xml.append("      <sequencerQuantization>" + this.quantization + "</sequencerQuantization>\n");
 		xml.append("      <muteMode>" + this.muteMode + "</muteMode>\n");
 		xml.append("      <velocityMode>" + this.velocityMode + "</velocityMode>\n");
+		
 		for(int chnum = 0; chnum < NUMBER_OF_CHANNELS; chnum++) {
 			for (int i=0; i < SEQUENCE_HEIGHT; i++) {
 				xml.append("      <row>" + String.valueOf(this.channels[chnum].noteNumbers[i]) + "</row>\n");
@@ -2012,7 +2013,7 @@ public class Flow implements Page, Serializable {
 			
 			private int newNoteLength = 1; // in number of steps
 
-			public int selectedScaleIndex;
+			public int selectedScaleIndex = 0;
 			public String rootNoteText = "C-1";
 			public int rootNoteNumber = 24; //this and the above 'text' now differ by 12 semitones! this is done to make it so that the root note appears on the first row in depth 1
 			public int keyboardRowOffset = 7; 

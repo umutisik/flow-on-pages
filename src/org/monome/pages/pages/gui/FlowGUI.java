@@ -56,7 +56,8 @@ public class FlowGUI extends JPanel implements Serializable {
 //		quantLBL.setBounds(new Rectangle(15, 135, 76, 16));
 //		quantLBL.setText("Quantization");
 //		quantLBL.setHorizontalAlignment(SwingConstants.RIGHT);
-		this.setSize(300, 300);
+		
+		this.setSize(400, 250);
 		this.setLayout(null);
 		this.add(getPageLabel(), null);
 		this.add(getChannelCB(), null);
@@ -69,24 +70,35 @@ public class FlowGUI extends JPanel implements Serializable {
 		this.add(getRootLBL(), null);
 		this.add(getScaleCB(), null);
 		this.add(getRootTF(), null);
- 		this.add(getGenerateScaleBtn(), null);
-//		
-		setName("Flow Page");
-		for (int i = 0; i < page.scaleChoices.length; i++){
-			scaleCB.addItem(page.scaleChoices[i]);
-		}
-		for(int i=0; i<16; i++)
-		{
-			int numma = i+1;
-			channelCB.addItem(Integer.toString(numma));
-		}
 		
-		for(int i=0; i<17; i++)
-		{
-			keyboardRowOffsetCB.addItem(Integer.toString(i));
-		}
-		keyboardRowOffsetCB.setSelectedIndex(7);
+ 		this.add(getGenerateScaleBtn(), null);
 
+ 		setName("Flow Page");
+ 		for (int i = 0; i < Flow.scaleChoices.length; i++){
+ 			scaleCB.addItem(Flow.scaleChoices[i]);
+ 		}
+
+ 		for(int i=0; i<17; i++)
+ 		{
+ 			keyboardRowOffsetCB.addItem(Integer.toString(i));
+ 		}
+ 		keyboardRowOffsetCB.setSelectedIndex(7);
+ 		
+ 		for(int i=0; i<16; i++)
+	 		{
+	 			int numma = i+1;
+	 			channelCB.addItem(Integer.toString(numma));
+	 		}
+ 		
+ 		try {
+
+ 			
+
+
+ 		} catch(Exception e) {
+ 			System.out.println("  errroooor   ");
+ 		}
+		
 	}
 	
 	public void setName(String name) {
@@ -114,10 +126,10 @@ public class FlowGUI extends JPanel implements Serializable {
 	private JComboBox getKeyboardRowOffsetCB() {
 		if (keyboardRowOffsetCB == null) {
 			keyboardRowOffsetCB = new JComboBox();
-			keyboardRowOffsetCB.setBounds(new Rectangle(400, 80, 71, 23));
+			keyboardRowOffsetCB.setBounds(new Rectangle(200, 120, 71, 23));
 			keyboardRowOffsetCB.addActionListener(new java.awt.event.ActionListener() {
 				public void actionPerformed(java.awt.event.ActionEvent e) {
-					page.channels[channelCB.getSelectedIndex()].rowOffset = keyboardRowOffsetCB.getSelectedIndex(); 
+					 
 				}
 			});
 		}
@@ -132,7 +144,7 @@ public class FlowGUI extends JPanel implements Serializable {
 	private JComboBox getChannelCB() {
 		if (channelCB == null) {
 			channelCB = new JComboBox();
-			channelCB.setBounds(new Rectangle(400, 5, 71, 23));
+			channelCB.setBounds(new Rectangle(200, 45, 71, 23));
 			channelCB.addActionListener(new java.awt.event.ActionListener() {
 				public void actionPerformed(java.awt.event.ActionEvent e) {
 					int index = channelCB.getSelectedIndex();
@@ -140,6 +152,7 @@ public class FlowGUI extends JPanel implements Serializable {
 					scaleCB.setSelectedIndex(page.channels[index].selectedScaleIndex);
 					rootTF.setText(page.channels[index].rootNoteText);
 					keyboardRowOffsetCB.setSelectedIndex(page.channels[index].keyboardRowOffset);
+					
 				}
 			});
 		}
@@ -151,7 +164,7 @@ public class FlowGUI extends JPanel implements Serializable {
 		if(channelLBL == null) {
 			channelLBL = new JLabel();
 			channelLBL.setText("Channel");
-			channelLBL.setBounds(new Rectangle(300, 5, 71, 21));
+			channelLBL.setBounds(new Rectangle(100, 45, 71, 21));
 			channelLBL.setHorizontalAlignment(SwingConstants.RIGHT);
 		}
 		return channelLBL;
@@ -163,7 +176,7 @@ public class FlowGUI extends JPanel implements Serializable {
 		if(keyboardRowOffsetLBL == null) {
 			keyboardRowOffsetLBL = new JLabel();
 			keyboardRowOffsetLBL.setText("Keyb Row Offset:");
-			keyboardRowOffsetLBL.setBounds(new Rectangle(300, 80, 71, 21));
+			keyboardRowOffsetLBL.setBounds(new Rectangle(100, 120, 71, 21));
 			keyboardRowOffsetLBL.setHorizontalAlignment(SwingConstants.RIGHT);
 		}
 		return keyboardRowOffsetLBL;
@@ -178,7 +191,7 @@ public class FlowGUI extends JPanel implements Serializable {
 		if(scaleLBL == null) {
 			scaleLBL = new JLabel();
 			scaleLBL.setText("Scale Type");
-			scaleLBL.setBounds(new Rectangle(300, 30, 71, 21));
+			scaleLBL.setBounds(new Rectangle(100, 70, 71, 21));
 			scaleLBL.setHorizontalAlignment(SwingConstants.RIGHT);
 		}
 		return scaleLBL;
@@ -193,7 +206,7 @@ public class FlowGUI extends JPanel implements Serializable {
 		if(rootLBL == null) {
 			rootLBL = new JLabel();
 			rootLBL.setText("Root");
-			rootLBL.setBounds(new Rectangle(300, 55, 71, 21));
+			rootLBL.setBounds(new Rectangle(100, 95, 71, 21));
 			rootLBL.setHorizontalAlignment(SwingConstants.RIGHT);
 		}
 		return rootLBL;
@@ -208,7 +221,7 @@ public class FlowGUI extends JPanel implements Serializable {
 	private JComboBox getScaleCB() {
 		if (scaleCB == null) {
 			scaleCB = new JComboBox();
-			scaleCB.setBounds(new Rectangle(400, 30, 110, 23));
+			scaleCB.setBounds(new Rectangle(200, 70, 110, 23));
 			scaleCB.addActionListener(new java.awt.event.ActionListener() {
 				public void actionPerformed(java.awt.event.ActionEvent e) {
 					// int index = scaleCB.getSelectedIndex();
@@ -228,7 +241,7 @@ public class FlowGUI extends JPanel implements Serializable {
 		if (rootTF == null) {
 			rootTF = new JTextField();
 			rootTF.setText("C-1");
-			rootTF.setBounds(new Rectangle(400, 55, 46, 21));
+			rootTF.setBounds(new Rectangle(200, 95, 46, 21));
 		}
 		return rootTF;
 	}	
@@ -296,7 +309,7 @@ public class FlowGUI extends JPanel implements Serializable {
 	private JButton getGenerateScaleBtn() {
 		if (generateScaleBtn == null) {
 			generateScaleBtn = new JButton();
-			generateScaleBtn.setBounds(new Rectangle(400, 105, 80, 21));
+			generateScaleBtn.setBounds(new Rectangle(200, 145, 80, 21));
 			generateScaleBtn.setText("Update");
 			generateScaleBtn.addActionListener(new java.awt.event.ActionListener() {
 				public void actionPerformed(java.awt.event.ActionEvent e) {
@@ -310,6 +323,8 @@ public class FlowGUI extends JPanel implements Serializable {
 					page.channels[guiSelectedChannelIndex].rootNoteText = rootTF.getText();
 					
 					page.channels[guiSelectedChannelIndex].setScale();
+					
+					page.channels[guiSelectedChannelIndex].rowOffset = keyboardRowOffsetCB.getSelectedIndex();
 				}
 			});
 		}
