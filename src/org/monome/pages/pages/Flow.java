@@ -1,10 +1,12 @@
 package org.monome.pages.pages;
 
 import java.awt.Dimension;
+import java.awt.event.ActionEvent;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Random;
 import java.util.Scanner;
+
 
 
 
@@ -96,6 +98,7 @@ public class Flow implements Page, Serializable {
 	
 	// constant scale information:
 	public static final String[] scaleChoices = { "Major", "Minor", "Chromatic", "Drums" };
+	public static final int SCALEINDEX_DRUMS = 3;
 	// the jump in semitones between notes in the scale, automatically cycles before the -99
 	// the scale is kept in a different format in flow.java, it is converted to it when it is generated here
 	public static final int[][] scaleJumps = { {2,2,1,2,2,2,1,-99,0,0,0,0,0,0,0,0,0}, 
@@ -136,7 +139,7 @@ public class Flow implements Page, Serializable {
 
 	public boolean keyboardRecordMode = false;
 	public boolean quantizeToNextStepWhenRecording = false; //updated all the time to tell us where to quantize to
-	
+	private int[] recordHeldRows =  new int[SEQUENCE_HEIGHT];
 
 	
 	
@@ -1209,7 +1212,7 @@ public class Flow implements Page, Serializable {
 	
 	public void lightUpNotesOnKeyboard(SequencerChannel chan, int seq_pos, int value) {
 		
-		if (muteMode == 1 || !chan.showInKeyboardMode || chan.isDrums) {
+		if (muteMode == 1 || !chan.showInKeyboardMode || chan.selectedScaleIndex == SCALEINDEX_DRUMS) {
 			return;
 		}
 		
@@ -1691,6 +1694,7 @@ public class Flow implements Page, Serializable {
 		return false;
 	}
 	
+	// load xml data from file
 	public void configure(Element pageElement) {
 		this.setName(this.monome.readConfigValue(pageElement, "pageName"));
 		//this.setHoldMode(this.monome.readConfigValue(pageElement, "holdmode"));
@@ -1725,6 +1729,15 @@ public class Flow implements Page, Serializable {
 				String sequence = ((Node) nl.item(0)).getNodeValue();		
 				this.setSequence(chnum, bnum, sequence);		
 			}
+			
+
+			channels[chnum].selectedScaleIndex = Integer.parseInt(this.monome.readConfigValue(chEl, "selectedScaleIndex"));
+			channels[chnum].rootNoteText = this.monome.readConfigValue(chEl, "rootNoteText");
+			channels[chnum].rootNoteNumber = Integer.parseInt(this.monome.readConfigValue(chEl, "rootNoteNumber"));
+			channels[chnum].keyboardRowOffset = Integer.parseInt(this.monome.readConfigValue(chEl, "keyboardRowOffset"));
+
+			// reset the gui display for the selected channel
+			gui.channelCB.getActionListeners()[0].actionPerformed(null);
 		}
 		
 		this.redrawDevice();
@@ -2008,7 +2021,7 @@ public class Flow implements Page, Serializable {
 			private int index;
 			
 			
-			public boolean isDrums = false;
+			//public boolean isDrums = false;
 // these are to save the gui info for reloading
 //			public int selectedScaleIndex;
 //			public int guiSelectedChannelIndex;
@@ -2240,13 +2253,6 @@ public class Flow implements Page, Serializable {
 						scaleIndex=0;
 				};
 				
-				// is drums? (notes don't light up for drums in keyboard mode)
-				if(selectedScaleIndex == 3) {
-					this.isDrums = true;
-				} else {
-					this.isDrums = false;
-				}
-				
 				// set the scale for the keyboard mode
 				setScaleForKeyboardMode();
 				
@@ -2344,6 +2350,15 @@ public class Flow implements Page, Serializable {
 			System.out.println(channels[i].depth);
 	}
 	
+	public void startRecording() {
+		for(int i=0;i<SEQUENCE_HEIGHT;i++) {
+			recordHeldRows[i] = 0;
+		}
+	}
+	
+	public void stopRecording() {
+		
+	}
 	
 } // end of class
 

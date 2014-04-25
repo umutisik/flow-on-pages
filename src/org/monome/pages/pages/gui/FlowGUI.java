@@ -71,7 +71,7 @@ public class FlowGUI extends JPanel implements Serializable {
 		this.add(getScaleCB(), null);
 		this.add(getRootTF(), null);
 		
- 		this.add(getGenerateScaleBtn(), null);
+ 		
 
  		setName("Flow Page");
  		for (int i = 0; i < Flow.scaleChoices.length; i++){
@@ -90,14 +90,7 @@ public class FlowGUI extends JPanel implements Serializable {
 	 			channelCB.addItem(Integer.toString(numma));
 	 		}
  		
- 		try {
-
- 			
-
-
- 		} catch(Exception e) {
- 			System.out.println("  errroooor   ");
- 		}
+ 		this.add(getGenerateScaleBtn(), null);
 		
 	}
 	
@@ -145,6 +138,7 @@ public class FlowGUI extends JPanel implements Serializable {
 		if (channelCB == null) {
 			channelCB = new JComboBox();
 			channelCB.setBounds(new Rectangle(200, 45, 71, 23));
+			
 			channelCB.addActionListener(new java.awt.event.ActionListener() {
 				public void actionPerformed(java.awt.event.ActionEvent e) {
 					int index = channelCB.getSelectedIndex();
@@ -152,7 +146,7 @@ public class FlowGUI extends JPanel implements Serializable {
 					scaleCB.setSelectedIndex(page.channels[index].selectedScaleIndex);
 					rootTF.setText(page.channels[index].rootNoteText);
 					keyboardRowOffsetCB.setSelectedIndex(page.channels[index].keyboardRowOffset);
-					
+					//System.out.println(page.channels[index].selectedScaleIndex + " " + index);
 				}
 			});
 		}
@@ -311,6 +305,7 @@ public class FlowGUI extends JPanel implements Serializable {
 			generateScaleBtn = new JButton();
 			generateScaleBtn.setBounds(new Rectangle(200, 145, 80, 21));
 			generateScaleBtn.setText("Update");
+			
 			generateScaleBtn.addActionListener(new java.awt.event.ActionListener() {
 				public void actionPerformed(java.awt.event.ActionEvent e) {
 					
@@ -319,11 +314,8 @@ public class FlowGUI extends JPanel implements Serializable {
 					// start with the first row and set it to the root 
 					// and for 15 more rows, set the note number according to the scale selected
 					page.channels[guiSelectedChannelIndex].selectedScaleIndex = scaleCB.getSelectedIndex();
-					
 					page.channels[guiSelectedChannelIndex].rootNoteText = rootTF.getText();
-					
 					page.channels[guiSelectedChannelIndex].setScale();
-					
 					page.channels[guiSelectedChannelIndex].rowOffset = keyboardRowOffsetCB.getSelectedIndex();
 				}
 			});
