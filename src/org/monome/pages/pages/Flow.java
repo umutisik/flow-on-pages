@@ -658,8 +658,12 @@ public class Flow implements Page, Serializable {
 			{
 				flow_led(x, seqYtoY(this.rowSwap[yToSeqY(x)]), 0, this.index);
 				flow_led(x, y, briMatrixDefault, this.index);
-				rowSwap[yToSeqY(x)]=seqYtoY(y);
+				rowSwap[yToSeqY(x)]=yToSeqY(y);
 			}
+			
+			for(int i=0;i<20;i++)
+					System.out.print(rowSwap[i] + " ");
+			System.out.println(" ");
 			return;	    
 		}
 		else if (this.mode == BANKMODE) { //handle press in bank mode
@@ -1594,25 +1598,32 @@ public class Flow implements Page, Serializable {
 		xml.append("      <muteMode>" + this.muteMode + "</muteMode>\n");
 		xml.append("      <velocityMode>" + this.velocityMode + "</velocityMode>\n");
 		
-		for(int chnum = 0; chnum < NUMBER_OF_CHANNELS; chnum++) {
+		for(int chnum = 0; chnum < NUMBER_OF_SAVED_CHANNELS; chnum++) {
+			xml.append("      <channel>\n");
 			for (int i=0; i < SEQUENCE_HEIGHT; i++) {
 				xml.append("      <row>" + String.valueOf(this.channels[chnum].noteNumbers[i]) + "</row>\n");
 			}
-		}
-		for(int chnum = 0; chnum < NUMBER_OF_SAVED_CHANNELS; chnum++) {
 			for (int i=0; i < NUMBER_OF_BANKS; i++) {
-				xml.append("      <sequence>");
+				xml.append("            <sequence>");
 				for (int j=0; j < MAX_SEQUENCE_LENGTH; j++) {
 					for (int k=0; k < SEQUENCE_HEIGHT; k++) {
-						xml.append(this.channels[0].sequence[i][j][k]);
+						xml.append(this.channels[chnum].sequence[i][j][k]);
 						xml.append(" ");
-						xml.append(this.channels[0].seqNoteLengths[i][j][k]);
+						xml.append(this.channels[chnum].seqNoteLengths[i][j][k]);
 						xml.append(" ");
 					}
 				}
 				xml.append("</sequence>\n");
 			}
+			xml.append("            <selectedScaleIndex>" + channels[chnum].selectedScaleIndex + "</selectedScaleIndex>\n");
+			xml.append("            <rootNoteText>" + channels[chnum].rootNoteText + "</rootNoteText>\n");
+			xml.append("            <rootNoteNumber>" + channels[chnum].rootNoteNumber + "</rootNoteNumber>\n");
+			xml.append("            <keyboardRowOffset>" + channels[chnum].keyboardRowOffset + "</keyboardRowOffset>\n");
+			
+			xml.append("      </channel>\n");
 		}
+		
+		
 		return xml.toString();
 	}
 
@@ -1694,20 +1705,20 @@ public class Flow implements Page, Serializable {
 		if (sVelocityMode != null) {
 			this.velocityMode = Integer.parseInt(sVelocityMode);
 		}
-		
-		NodeList rowNL = pageElement.getElementsByTagName("row");		
-		for(int chnum=0; chnum < NUMBER_OF_CHANNELS; chnum++) {
+
+		NodeList chanNL = pageElement.getElementsByTagName("channel");
+		for(int chnum=0; chnum < NUMBER_OF_SAVED_CHANNELS; chnum++) { //NUMBER_OF_CHANNELS=16 but we are only saving half the channels 
+			Element chEl = (Element) chanNL.item(chnum);
+			
+			NodeList rowNL = chEl.getElementsByTagName("row");
 			for(int rownum=0; rownum<SEQUENCE_HEIGHT; rownum++) {
-				int l=chnum*SEQUENCE_HEIGHT + rownum;
-				Element el = (Element) rowNL.item(l);		
+				Element el = (Element) rowNL.item(rownum);		
 				NodeList nl = el.getChildNodes();		
 				String midiNote = ((Node) nl.item(0)).getNodeValue();		
 				this.setNoteValue(chnum, rownum, Integer.parseInt(midiNote));	
 			}
-		}		
-		
-		NodeList seqNL = pageElement.getElementsByTagName("sequence");
-		for(int chnum=0; chnum < NUMBER_OF_SAVED_CHANNELS; chnum++) { //NUMBER_OF_CHANNELS=16 but we are only saving half the channels
+			
+			NodeList seqNL = chEl.getElementsByTagName("sequence");
 			for (int bnum=0; bnum < NUMBER_OF_BANKS; bnum++) {
 				Element el = (Element) seqNL.item(bnum);		
 				NodeList nl = el.getChildNodes();		
@@ -1715,6 +1726,7 @@ public class Flow implements Page, Serializable {
 				this.setSequence(chnum, bnum, sequence);		
 			}
 		}
+		
 		this.redrawDevice();
 	}
 
@@ -1972,6 +1984,7 @@ public class Flow implements Page, Serializable {
 		return selectedChannel.depth*DEPTHINCREMENT + y;
 	}
 	
+	// converts y coord on sequence to y coord on monome
 	public int seqYtoY(int seqy) {
 		if(seqy<yToSeqY(0) || seqy+1 > yToSeqY(this.monome.sizeY-1)) 
 			return -1;
@@ -2101,7 +2114,9 @@ public class Flow implements Page, Serializable {
 						if(seqy>=SEQUENCE_HEIGHT)
 							break outerloop;
 					}
-				}				
+				}	
+				
+				//setScale();
 			}
 
 			/**
@@ -2228,6 +2243,8 @@ public class Flow implements Page, Serializable {
 				// is drums? (notes don't light up for drums in keyboard mode)
 				if(selectedScaleIndex == 3) {
 					this.isDrums = true;
+				} else {
+					this.isDrums = false;
 				}
 				
 				// set the scale for the keyboard mode
