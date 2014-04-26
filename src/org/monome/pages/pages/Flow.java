@@ -102,17 +102,17 @@ public class Flow implements Page, Serializable {
 	// the jump in semitones between notes in the scale, automatically cycles before the -99
 	// the scale is kept in a different format in flow.java, it is converted to it when it is generated here
 	public static final int[][] scaleJumps = { {2,2,1,2,2,2,1,-99,0,0,0,0,0,0,0,0,0}, 
-								   {2,1,2,2,1,2,2,-99,0,0,0,0,0,0,0,0,0}, 
-								   {1,1,1,1,1,1,1,1,1,1,1,1,-99,0,0,0,0},
-								   {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,-99}
-								 };
-	
+											   {2,1,2,2,1,2,2,-99,0,0,0,0,0,0,0,0,0}, 
+											   {1,1,1,1,1,1,1,1,1,1,1,1,-99,0,0,0,0},
+											   {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,-99}
+											 };
+
 	// this is a little offset, added so that when depth=1 the bottom row aligns. it records where the scale starts
 	// i.e. how many rows do you need to move things up so that at depth = 1 i.e. 7 rows up, the root note aligns
 	public static final int[] scaleInitialIndex = {0,0,0,0};
 	public static final int[] scaleSeminoteOffset = {0,0,5,5};
-	
-	
+	//public static final int[] scaleKeyboardModeOffset = {0,0,12,12};
+	public static final int DEFAULT_VELOCITY = 103;
 	
 	
 	
@@ -139,8 +139,8 @@ public class Flow implements Page, Serializable {
 
 	public boolean keyboardRecordMode = false;
 	public boolean quantizeToNextStepWhenRecording = false; //updated all the time to tell us where to quantize to
-	private int[] recordHeldRows =  new int[SEQUENCE_HEIGHT];
-
+	private int[] recordHeldRowsPressTime =  new int[SEQUENCE_HEIGHT];
+	private int recordingTimer = 0; // reset to 0 every time you start recording
 	
 	
 
@@ -627,11 +627,10 @@ public class Flow implements Page, Serializable {
 			if(x==0 && y==0) {
 				if(value==1) {
 					if(!keyboardRecordMode) {
-
-						keyboardRecordMode = true;
+						startRecording();	
 						flow_led(0,0,briNoteOn,this.index);
 					} else {
-						keyboardRecordMode = false;
+						stopRecording();
 						// any notes still being held at this point will not be recorded.
 						flow_led(0,0,briOff,this.index);
 					}
@@ -639,14 +638,18 @@ public class Flow implements Page, Serializable {
 				return;
 			}
 				
-			if (y != (this.monome.sizeY - 1) || x < LastModeButton) { //if page change or keyboard mode button aren't the ones pressed
+			if (y != (this.monome.sizeY - 1) || x < LastModeButton) { //if page change or mode buttons aren't the ones being pressed
 				int velocity = value * 127;
 				int channel = 1;
 				
-				int midi_num = this.keyboardModeNoteNumberToMidiNumber((x - selectedChannel.rootNoteX) + selectedChannel.rowOffset*(selectedChannel.rootNoteY-y), selectedChannel);
+				int keybNoteNum = (x - selectedChannel.rootNoteX) + selectedChannel.rowOffset*(selectedChannel.rootNoteY-y);
+				int midi_num = this.keyboardModeNoteNumberToMidiNumber(keybNoteNum, selectedChannel);
 				if (midi_num > 127) midi_num = 127;
 				if (midi_num < 0) midi_num = 0;
 				this.playNote(midi_num, velocity, channel, value);
+				if(keyboardRecordMode)
+					this.recordModePress(keybNoteNum, value);
+				
 				keyboardModeLedFromNoteNumber((x - selectedChannel.rootNoteX) + selectedChannel.rowOffset*(selectedChannel.rootNoteY-y), briKeybSameNote*value, selectedChannel);
 				// extra brightness for the key actually pressed
 				if(value>0)
@@ -784,21 +787,9 @@ public class Flow implements Page, Serializable {
 					x_seq = xToSeqX(x);
 					y_seq = yToSeqY(y);
 					if (selectedChannel.sequence[selectedChannel.selectedBank][x_seq][y_seq] == 0) {
-						// add the note to the sequencer
-						if (this.velocityMode == 1) {
-							selectedChannel.sequence[selectedChannel.selectedBank][x_seq][y_seq] = 103;
-						} else {
-							selectedChannel.sequence[selectedChannel.selectedBank][x_seq][y_seq] = 103;
-						}
 						
-						// store note length
-						// if there is a previous note that would end after this new one, 
-						// then make the endings of the two notes the same (i.e. don't change note length)
-						if(selectedChannel.seqNoteLengths[selectedChannel.selectedBank][x_seq][y_seq] < selectedChannel.newNoteLength)
-							selectedChannel.seqNoteLengths[selectedChannel.selectedBank][x_seq][y_seq] = selectedChannel.newNoteLength;
-						
-						selectedChannel.reGenerateNoteLengthArrayRow(selectedChannel.selectedBank, y_seq, x_seq, x_seq+16);
-						
+						selectedChannel.sequenceAddNote(selectedChannel.selectedBank, y_seq, x_seq, selectedChannel.newNoteLength, DEFAULT_VELOCITY);
+							
 						int note_len = selectedChannel.seqNoteLengths[selectedChannel.selectedBank][x_seq][y_seq];
 						// redraw this part of the row
 						for(int i=0;i < note_len; i++) {
@@ -817,7 +808,6 @@ public class Flow implements Page, Serializable {
 							}
 						}
 						
-							
 						// update the led
 						flow_led(x, y, briSeqNote, this.index);
 						
@@ -920,6 +910,8 @@ public class Flow implements Page, Serializable {
 		
 		// send a note on for lit leds on this sequence position
 		if (this.tickNum == 0) {
+			if(keyboardRecordMode)
+				recordingTimer++;
 			// play notes for all channels, ci=channel index
 			for(int ci = 0; ci<NUMBER_OF_CHANNELS; ci++)
 			{
@@ -1832,7 +1824,8 @@ public class Flow implements Page, Serializable {
 			}
 		}
 				
-		note = chan.rootNoteMidiNumber + chan.scaleNoteDiffsToRoot[nn] + offset;
+		note = chan.rootNoteMidiNumber + 12 + chan.scaleNoteDiffsToRoot[nn] + offset; // we need to offset by 12 because we made the root note appear 12 less so that we can start from depth 0 but depth 1 gives the real root note
+		
 		note += (transp + this.accidental);
 		
 		return note;
@@ -1849,6 +1842,7 @@ public class Flow implements Page, Serializable {
 	}
 
 	public int keyboardModeNoteNumberFromMidiNumber(int num, SequencerChannel chan) {
+		num-=12; // this offset is because we made the root note number appear 12 more than what is stored for us, same for the reverse function
 		int offset = 0;
 		//bring the number between rootNoteMidiNumber and rootNoteMidiNumber+scaletotalinsemitones
 		while(num >= chan.rootNoteMidiNumber + chan.scaleTotalInSemitones) {
@@ -2193,6 +2187,18 @@ public class Flow implements Page, Serializable {
 				}
 			}
 
+			public void sequenceAddNote(int bankno, int y_seq, int x_seq, int length, int velocity) {
+				// add the note to the sequencer
+				this.sequence[bankno][x_seq][y_seq] = DEFAULT_VELOCITY;
+				
+				// store note length
+				// if there is a previous note that would end after this new one, 
+				// then make the endings of the two notes the same (i.e. don't change note length)
+				if(this.seqNoteLengths[bankno][x_seq][y_seq] < length)
+					this.seqNoteLengths[bankno][x_seq][y_seq] = length;
+				
+				this.reGenerateNoteLengthArrayRow(bankno, y_seq, x_seq, x_seq+length);
+			}
 			
 			// fixes a row's note length data, to be used in the case of changes where the note length data is altered
 			// eg: xstart and xend would be 0 to 16, this would stop at 15
@@ -2352,12 +2358,41 @@ public class Flow implements Page, Serializable {
 	
 	public void startRecording() {
 		for(int i=0;i<SEQUENCE_HEIGHT;i++) {
-			recordHeldRows[i] = 0;
+			recordHeldRowsPressTime[i] = -1;
 		}
+		keyboardRecordMode = true;
+		recordingTimer = 0;
 	}
 	
 	public void stopRecording() {
+		keyboardRecordMode = false;
+	}
+	
+	public void recordModePressFromMidiNum(int midinum, int value) {
 		
+	}
+	
+	public void recordModePress(int keybNoteNum, int value) {
+		//System.out.println(keybNoteNum);
+		int rownum = keybNoteNum + 7;
+		if(rownum<0 || rownum>SEQUENCE_HEIGHT)
+			return;
+		if(value == 1) {
+			if(quantizeToNextStepWhenRecording)
+				recordHeldRowsPressTime[rownum] = selectedChannel.sequencePosition+1;
+			else
+				recordHeldRowsPressTime[rownum] = selectedChannel.sequencePosition;
+		} else { // if value==0
+			if(recordHeldRowsPressTime[rownum] == -1)
+				return;
+			int noteLength = selectedChannel.sequencePosition - recordHeldRowsPressTime[rownum];
+			if(quantizeToNextStepWhenRecording)
+				noteLength++;
+			if(noteLength<=0)
+				noteLength+=16;
+			selectedChannel.sequenceAddNote(selectedChannel.selectedBank, rownum, recordHeldRowsPressTime[rownum], noteLength , DEFAULT_VELOCITY );
+			recordHeldRowsPressTime[rownum] = -1;
+		}
 	}
 	
 } // end of class
