@@ -90,6 +90,7 @@ public class Flow implements Page, Serializable {
 	public int ButtonNoVelocity = 11;
 	public int ButtonNoMute = 10;
 	public int ButtonNoClear = 5;
+	
 	// 0
 	
 	public static final int MAX_SEQUENCE_LENGTH = 256;
@@ -667,9 +668,9 @@ public class Flow implements Page, Serializable {
 				rowSwap[yToSeqY(x)]=yToSeqY(y);
 			}
 			
-			for(int i=0;i<20;i++)
-					System.out.print(rowSwap[i] + " ");
-			System.out.println(" ");
+			//for(int i=0;i<20;i++)
+			//		System.out.print(rowSwap[i] + " ");
+			//System.out.println(" ");
 			return;	    
 		}
 		else if (this.mode == BANKMODE) { //handle press in bank mode
@@ -2350,10 +2351,10 @@ public class Flow implements Page, Serializable {
 	}
 	
 	public void superdebug() {
-		for(int i=0;i<SEQUENCE_HEIGHT;i++)
-			System.out.println(selectedChannel.noteNumbers[i]);
-		for(int i=0;i<4;i++)
-			System.out.println(channels[i].depth);
+//		for(int i=0;i<SEQUENCE_HEIGHT;i++)
+//			System.out.println(selectedChannel.noteNumbers[i]);
+//		for(int i=0;i<4;i++)
+//			System.out.println(channels[i].depth);
 	}
 	
 	public void startRecording() {
@@ -2386,8 +2387,10 @@ public class Flow implements Page, Serializable {
 			if(recordHeldRowsPressTime[rownum] == -1)
 				return;
 			int noteLength = selectedChannel.sequencePosition - recordHeldRowsPressTime[rownum];
-			if(quantizeToNextStepWhenRecording)
+			
+			if(quantizeToNextStepWhenRecording && noteLength == 0)
 				noteLength++;
+			
 			if(noteLength<=0)
 				noteLength+=16;
 			selectedChannel.sequenceAddNote(selectedChannel.selectedBank, rownum, recordHeldRowsPressTime[rownum], noteLength , DEFAULT_VELOCITY );
