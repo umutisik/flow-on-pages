@@ -90,7 +90,7 @@ public class Flow implements Page, Serializable {
 	public int ButtonNoVelocity = 11;
 	public int ButtonNoMute = 10;
 	public int ButtonNoClear = 5;
-	
+	public int ButtonNoMuteChannel = 9;
 	// 0
 	
 	public static final int MAX_SEQUENCE_LENGTH = 256;
@@ -173,6 +173,7 @@ public class Flow implements Page, Serializable {
 	
 	public class FlowMidiEvent {
 		public int onOff; // 0 for off
+		public boolean isSilent = false; // for handling the turning off of notes in channel mute mode
 		public int midiChannel;
 		public int midiNo;
 		public int velocity;
@@ -185,12 +186,13 @@ public class Flow implements Page, Serializable {
 			this.midiNo = note_num;
 		}
 		
-		public FlowMidiEvent(int note_num, int onOff, int vel, int midichannel, int sourceChannelNumber) {
+		public FlowMidiEvent(int note_num, int onOff, int vel, boolean silent, int midichannel, int sourceChannelNumber) {
 			this.midiChannel = midichannel;
 			this.onOff = onOff;
 			this.velocity = vel;
 			this.midiNo = note_num;
 			this.sourceChannelNumber = sourceChannelNumber;
+			this.isSilent = silent;
 		}
 	}
 	 
@@ -711,6 +713,15 @@ public class Flow implements Page, Serializable {
 						}
 						this.redrawDevice();
 					}
+					
+					if (x == ButtonNoMuteChannel) {
+						if (this.selectedChannel.isMuted == false) {
+							this.selectedChannel.isMuted = true;
+						} else {
+							this.selectedChannel.isMuted = false;
+						}
+						this.redrawDevice();
+					}
 				}
 			} else { // in bank mode but not bottom row. i.e. a bank button is pressed or released
 				if (value == 1 && bankClearMode == 1) {
@@ -774,6 +785,15 @@ public class Flow implements Page, Serializable {
 						this.redrawDevice();
 					}
 
+					if (x == ButtonNoMuteChannel) {
+						if (this.selectedChannel.isMuted == false) {
+							this.selectedChannel.isMuted = true;
+						} else {
+							this.selectedChannel.isMuted = false;
+						}
+						this.redrawDevice();
+					}
+					
 					if (x == ButtonNoVelocity) {
 						if (this.velocityMode == 0) {
 							this.velocityMode = 1;
@@ -944,9 +964,9 @@ public class Flow implements Page, Serializable {
 				
 				// play
 				this.playNotes(loopChan, loopChan.sequencePosition, 127);
-				if(this.mode == KEYBOARDMODE)
-					this.lightUpNotesOnKeyboard(loopChan, loopChan.sequencePosition, briKeybNotePlaying);
-				
+//				if(this.mode == KEYBOARDMODE)
+//					this.lightUpNotesOnKeyboard(loopChan, loopChan.sequencePosition, briKeybNotePlaying);
+//				
 			}
 			
 			
@@ -1119,6 +1139,9 @@ public class Flow implements Page, Serializable {
 			else if(col == ButtonNoMute && muteMode == 1) {
 				flow_led(col, (this.monome.sizeY - 1), this.briOn, this.index);
 			}
+			else if(col == ButtonNoMuteChannel && selectedChannel.isMuted) {
+				flow_led(col, (this.monome.sizeY - 1), this.briOn, this.index);
+			}
 			else if (col == (this.monome.sizeX - 1)) {
 				flow_led(col, (this.monome.sizeY - 1), 0, this.index);
 			} 
@@ -1148,8 +1171,6 @@ public class Flow implements Page, Serializable {
 		int velocity;
 		int midiChannel = chan.midiChannel;
 		for (int y = 0; y < SEQUENCE_HEIGHT; y++) {
-		// there used to be a hold mode
-		// now only normal mode 
 				if (chan.sequence[chan.playingBank][seq_pos][y] > 0) {
 					if (on > 0) {
 						velocity = (chan.sequence[chan.playingBank][seq_pos][y]);
@@ -1161,27 +1182,32 @@ public class Flow implements Page, Serializable {
 					if (note_num < 0) {
 						continue;
 					}
-					try {
-						if (velocity == 0) {
-							chan.heldNotes[y] = 0;
-						} else {
-							//System.out.print(y + "-" + note_num);
-							note_out.setMessage(ShortMessage.NOTE_ON, midiChannel, note_num, velocity);
-							chan.heldNotes[y] = 1;
-						}
-						String[] midiOutOptions = monome.getMidiOutOptions(this.index);
-						for (int i = 0; i < midiOutOptions.length; i++) {
-							if (midiOutOptions[i] == null) {
-								continue;
+					if(!chan.isMuted) {
+						try {
+							if (velocity == 0) {
+								chan.heldNotes[y] = 0;
+							} else {
+								//System.out.print(y + "-" + note_num);
+								note_out.setMessage(ShortMessage.NOTE_ON, midiChannel, note_num, velocity);
+								chan.heldNotes[y] = 1;
 							}
-							Receiver recv = monome.getMidiReceiver(midiOutOptions[i]);
-							if (recv != null) {
-								recv.send(note_out, MidiDeviceFactory.getDevice(recv).getMicrosecondPosition());
+							String[] midiOutOptions = monome.getMidiOutOptions(this.index);
+							for (int i = 0; i < midiOutOptions.length; i++) {
+								if (midiOutOptions[i] == null) {
+									continue;
+								}
+								Receiver recv = monome.getMidiReceiver(midiOutOptions[i]);
+								if (recv != null) {
+									recv.send(note_out, MidiDeviceFactory.getDevice(recv).getMicrosecondPosition());
+								}
 							}
+						} catch (InvalidMidiDataException e) {
+							e.printStackTrace();
 						}
-					} catch (InvalidMidiDataException e) {
-						e.printStackTrace();
 					}
+					
+					if(this.mode == KEYBOARDMODE)
+						keyboardModeLedFromMidiNumber(note_num, (chan == selectedChannel ? briKeybNotePlaying : briKeybOtherChannels), this.selectedChannel);
 					
 					// light up notes on keyboard if necessary
 					//					if (chan.showInKeyboardMode && this.mode == KEYBOARDMODE) {
@@ -1196,32 +1222,33 @@ public class Flow implements Page, Serializable {
 					int newPos = midiSchedulerPosition + chan.seqNoteLengths[chan.playingBank][seq_pos][y]*this.quantization;
 					while(newPos >= MAX_LEN_OF_MIDI_SCHEDULER)
 						newPos -= MAX_LEN_OF_MIDI_SCHEDULER;
-					FlowMidiEvent noteOff = new FlowMidiEvent(note_num, 0, 0, chan.midiChannel, chan.number);
+					FlowMidiEvent noteOff = new FlowMidiEvent(note_num, 0, 0, chan.isMuted, chan.midiChannel, chan.number);
 					midiNoteOffSchedule[newPos].add(noteOff);
 				}
 			
 		}
 	}
 	
-	public void lightUpNotesOnKeyboard(SequencerChannel chan, int seq_pos, int value) {
-		
-		if (muteMode == 1 || !chan.showInKeyboardMode || chan.selectedScaleIndex == SCALEINDEX_DRUMS) {
-			return;
-		}
-		
-		int note_midi_num;
-		
-		for (int y = 0; y < SEQUENCE_HEIGHT; y++) {
-			if (chan.sequence[chan.playingBank][seq_pos][y] > 0) {
-				note_midi_num = chan.getNoteNumber(y);
-				if(value > 0) {
-					if(chan != selectedChannel)
-						value = briKeybOtherChannels;
-				}
-				keyboardModeLedFromMidiNumber(note_midi_num, value, this.selectedChannel);
-			}
-		}
-	}
+//	public void lightUpNotesOnKeyboard(SequencerChannel chan, int seq_pos, int value) {
+//		
+//		if (muteMode == 1 || !chan.showInKeyboardMode || chan.selectedScaleIndex == SCALEINDEX_DRUMS) {
+//			return;
+//		}
+//		
+//		int note_midi_num;
+//		
+//		for (int y = 0; y < SEQUENCE_HEIGHT; y++) {
+//			if (chan.sequence[chan.playingBank][seq_pos][y] > 0) {
+//				note_midi_num = chan.getNoteNumber(y);
+//				if(value > 0) {
+//					if(chan != selectedChannel)
+//						value = briKeybOtherChannels;
+//				}
+//				keyboardModeLedFromMidiNumber(note_midi_num, value, this.selectedChannel);
+//			}
+//		}
+//	}
+	
 
 	public void  lightUpNotesInMatrixMode(SequencerChannel chan, int seq_pos, int value) {
 		if (muteMode == 1) {
@@ -1455,6 +1482,9 @@ public class Flow implements Page, Serializable {
 				else if (x == ButtonNoMute) {
 					flow_led(x, (this.monome.sizeY - 1), this.muteMode*this.briOn, this.index);
 				}
+				else if (x == ButtonNoMuteChannel) {
+					flow_led(x, (this.monome.sizeY - 1), (this.selectedChannel.isMuted ? 1 : 0)*this.briOn, this.index);
+				}
 				else if (x == ButtonNoVelocity) {
 					flow_led(x, (this.monome.sizeY - 1), this.velocityMode*this.briOn, this.index);
 				}
@@ -1473,6 +1503,9 @@ public class Flow implements Page, Serializable {
 				}
 				else if (x == ButtonNoMute) {
 					flow_led(x, (this.monome.sizeY - 1), this.muteMode*this.briOn, this.index);
+				}
+				else if (x == ButtonNoMuteChannel) {
+					flow_led(x, (this.monome.sizeY - 1), (this.selectedChannel.isMuted ? 1 : 0)*this.briOn, this.index);
 				}
 				else if (x == ButtonNoVelocity) {
 					flow_led(x, (this.monome.sizeY - 1), this.velocityMode*this.briOn, this.index);
@@ -1732,6 +1765,11 @@ public class Flow implements Page, Serializable {
 			// reset the gui display for the selected channel
 			gui.channelCB.getActionListeners()[0].actionPerformed(null);
 		}
+		
+		
+		for(int i=0;i<NUMBER_OF_CHANNELS;i++)
+			channels[i].setScale();
+			//generateIsMidiNumberInScale(channels[i]);
 		
 		this.redrawDevice();
 	}
@@ -2029,8 +2067,11 @@ public class Flow implements Page, Serializable {
 			
 			private int[][][] seqNoteLengths = new int[NUMBER_OF_BANKS][MAX_SEQUENCE_LENGTH][SEQUENCE_HEIGHT]; // in steps
 			
+			
 			private int selectedBank;
 			private int playingBank;
+			
+			private boolean isMuted = false;
 			
 			private int newNoteLength = 1; // in number of steps
 
@@ -2038,6 +2079,7 @@ public class Flow implements Page, Serializable {
 			public String rootNoteText = "C-1";
 			public int rootNoteNumber = 24; //this and the above 'text' now differ by 12 semitones! this is done to make it so that the root note appears on the first row in depth 1
 			public int keyboardRowOffset = 7; 
+			
 			
 			/**
 			 * The current position in the sequence (from 0 to 31)
