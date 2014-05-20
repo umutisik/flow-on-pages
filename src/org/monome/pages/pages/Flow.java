@@ -1048,27 +1048,32 @@ public class Flow implements Page, Serializable {
 			int midiChannel = midiev.midiChannel;
 			int midino = midiev.midiNo;
 			
-			try {
-				
-				note_out.setMessage(ShortMessage.NOTE_OFF, midiChannel, midino, 0);
-				
-				String[] midiOutOptions = monome.getMidiOutOptions(this.index);
-				for (int j = 0; j < midiOutOptions.length; j++) {
-					if (midiOutOptions[j] == null) {
-						continue;
-					}
-					Receiver recv = monome.getMidiReceiver(midiOutOptions[j]);
-					if (recv != null) {
-						recv.send(note_out, MidiDeviceFactory.getDevice(recv).getMicrosecondPosition());
-					}
-				}
-			} catch (InvalidMidiDataException e) {
-				e.printStackTrace();
-			}
-			
 			if(this.channels[midiev.sourceChannelNumber].showInKeyboardMode && this.mode == KEYBOARDMODE) {
 				keyboardModeLedFromMidiNumber(midino, 0, selectedChannel);
 			}
+			
+			if(!midiev.isSilent) {
+
+
+				try {
+
+					note_out.setMessage(ShortMessage.NOTE_OFF, midiChannel, midino, 0);
+
+					String[] midiOutOptions = monome.getMidiOutOptions(this.index);
+					for (int j = 0; j < midiOutOptions.length; j++) {
+						if (midiOutOptions[j] == null) {
+							continue;
+						}
+						Receiver recv = monome.getMidiReceiver(midiOutOptions[j]);
+						if (recv != null) {
+							recv.send(note_out, MidiDeviceFactory.getDevice(recv).getMicrosecondPosition());
+						}
+					}
+				} catch (InvalidMidiDataException e) {
+					e.printStackTrace();
+				}
+			}
+			
 		}
 		
 		midiNoteOffSchedule[now].clear();
