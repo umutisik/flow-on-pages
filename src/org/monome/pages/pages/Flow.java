@@ -243,7 +243,9 @@ public class Flow implements Page, Serializable {
     // brightness settings for different situations
     // sequenced notes
     private int briSeqNote = 12;
-    private int briSeqOtherChannelNote = 6;
+    private int briSeqOtherChannelNote = 3;
+    private int briSeqOtherChannelNoteLen = 2;
+    private int briSeqRootNote = 2;
     // moving bar
     private int briSeqBar = 7;
     // note on
@@ -1048,7 +1050,7 @@ public class Flow implements Page, Serializable {
 			int midiChannel = midiev.midiChannel;
 			int midino = midiev.midiNo;
 			
-			if(this.channels[midiev.sourceChannelNumber].showInKeyboardMode && this.mode == KEYBOARDMODE) {
+			if(this.channels[midiev.sourceChannelNumber].notIndependentInSeqAndKeybModes && this.mode == KEYBOARDMODE) {
 				keyboardModeLedFromMidiNumber(midino, 0, selectedChannel);
 			}
 			
@@ -1096,12 +1098,13 @@ public class Flow implements Page, Serializable {
 	 * Redraws a column as the sequence position indicator passes by.
 	 * 
 	 * @param col The column number to redrawDevice
-	 * @param val The value of the led_col message that triggered this redrawDevice
+	 * @param val The value of the led_col message that triggered this redrawDevice 1 for column flash 0 for normal
 	 */
 	private void sequencerModeRedrawCol(int col, int val) {
 		if(this.mode != SEQUENCERMODE)
 			return;
-		int x_seq = (getSelectedPatternNumber() * (this.monome.sizeX)) + col;
+		int x_seq = xToSeqX(col);
+		int y_seq;
 		
 		if(val > 0) {
 			for(int i=0;i<this.monome.sizeY;i++) {
@@ -1116,16 +1119,31 @@ public class Flow implements Page, Serializable {
 		}
 		else if (val == 0) {
 			for (int y = 0; y < (this.monome.sizeY - 1); y++) {
-				int y_seq =yToSeqY(y);
+				y_seq = yToSeqY(y);
+				int value = 0;
+				if(!selectedChannel.isDrums && selectedChannel.isRootModOctave(y_seq))
+					value = briSeqRootNote;
 				if (this.selectedChannel.sequence[selectedChannel.selectedBank][x_seq][y_seq] > 0) {
-					flow_led(col, y, this.briSeqNote, this.index);
-				} else if(this.selectedChannel.seqNoteLengths[selectedChannel.selectedBank][x_seq][y_seq] > 0) {
-					flow_led(col, y, this.briSeqNoteLen, this.index);
+					value = this.briSeqNote;
+				} else if(this.selectedChannel.seqNoteLengths[selectedChannel.selectedBank][x_seq][y_seq] > 0)
+					value = this.briSeqNoteLen;
+				else if(selectedChannel.notIndependentInSeqAndKeybModes) { //look at the other channels for notes
+					for(int chn=0;chn<this.NUMBER_OF_CHANNELS;chn++) {
+						if(chn == this.selectedChannelNumber)
+							continue;
+						SequencerChannel loopChan = this.channels[chn];
+						if(!loopChan.notIndependentInSeqAndKeybModes)
+							continue;
+						if (loopChan.sequence[loopChan.selectedBank][x_seq][y_seq] > 0) {
+							value = this.briSeqOtherChannelNote;
+							break;
+						} else if(loopChan.seqNoteLengths[loopChan.selectedBank][x_seq][y_seq] > 0)
+							value = this.briSeqOtherChannelNoteLen;
+					}
 				}
-				else {
-					flow_led(col, y, this.briOff, this.index);
-				}
+				flow_led(col, y, value, this.index);
 			}
+			
 //			if (col == this.pattern) {
 //				flow_led(col, (this.monome.sizeY - 1), briOn, this.index);
 //			}
@@ -1215,7 +1233,7 @@ public class Flow implements Page, Serializable {
 						keyboardModeLedFromMidiNumber(note_num, (chan == selectedChannel ? briKeybNotePlaying : briKeybOtherChannels), this.selectedChannel);
 					
 					// light up notes on keyboard if necessary
-					//					if (chan.showInKeyboardMode && this.mode == KEYBOARDMODE) {
+					//					if (chan.notIndependentInSeqAndKeybModes && this.mode == KEYBOARDMODE) {
 					//						int bribri = briKeybOtherChannels;
 					//						if(chan == selectedChannel)
 					//							bribri = briKeybNotePlaying;
@@ -1236,7 +1254,7 @@ public class Flow implements Page, Serializable {
 	
 //	public void lightUpNotesOnKeyboard(SequencerChannel chan, int seq_pos, int value) {
 //		
-//		if (muteMode == 1 || !chan.showInKeyboardMode || chan.selectedScaleIndex == SCALEINDEX_DRUMS) {
+//		if (muteMode == 1 || !chan.notIndependentInSeqAndKeybModes || chan.selectedScaleIndex == SCALEINDEX_DRUMS) {
 //			return;
 //		}
 //		
@@ -1448,16 +1466,7 @@ public class Flow implements Page, Serializable {
 		// redrawDevice if we're in sequence mode
 		} else if(this.mode == this.SEQUENCERMODE) {
 			for (int x = 0; x < (this.monome.sizeX); x++) {
-				x_seq = xToSeqX(x);
-				for (int y = 0; y < (this.monome.sizeY - 1); y++) {
-					y_seq = yToSeqY(y);
-					int value = 0;
-					if (this.selectedChannel.sequence[selectedChannel.selectedBank][x_seq][y_seq] > 0) {
-						value = this.briSeqNote;
-					} else if(this.selectedChannel.seqNoteLengths[selectedChannel.selectedBank][x_seq][y_seq] > 0)
-						value = this.briSeqNoteLen;
-					flow_led(x, y, value, this.index);
-				}
+				sequencerModeRedrawCol(x, 0);
 			}
 			// top layer
 			patternModeRedraw();
@@ -2059,7 +2068,7 @@ public class Flow implements Page, Serializable {
 			private int index;
 			
 			
-			//public boolean isDrums = false;
+			public boolean isDrums = false;
 // these are to save the gui info for reloading
 //			public int selectedScaleIndex;
 //			public int guiSelectedChannelIndex;
@@ -2106,7 +2115,7 @@ public class Flow implements Page, Serializable {
 			private int rootNoteY = 14;
 			public int rowOffset = 7; //in number of notes in scale not semitones!
 			
-			// these are 
+			// ...
 			public int rootNoteMidiNumber = 24; // default is C1
 			public int[] scaleNoteDiffsToRoot = {0,2,4,5,7,9,11,-99,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}; // default is major 
 			public int scaleLength = 7;
@@ -2127,7 +2136,8 @@ public class Flow implements Page, Serializable {
 
 			public int midiChannel = 1;
 			
-			public boolean showInKeyboardMode = true;
+			
+			public boolean notIndependentInSeqAndKeybModes = true;
 			
 			public int number = 0; // the index of this channel in array, useful for midi note off scheduler
 			
@@ -2297,6 +2307,16 @@ public class Flow implements Page, Serializable {
 				rootNoteNumber = noteToMidiNumber(rootNoteText)-12;
 				
 				int scaleIndex=scaleInitialIndex[selectedScaleIndex];
+				
+				if(this.selectedScaleIndex != SCALEINDEX_DRUMS) {
+					this.isDrums = false;
+					this.notIndependentInSeqAndKeybModes = true;
+				}
+				else {
+					this.isDrums = true;
+					this.notIndependentInSeqAndKeybModes = false;
+				}
+				
 				this.noteNumbers[0] = rootNoteNumber+scaleSeminoteOffset[selectedScaleIndex];
 				int rowIndex=1;
 				while(rowIndex<SEQUENCE_HEIGHT) {
@@ -2349,6 +2369,11 @@ public class Flow implements Page, Serializable {
 				return patternsStarting[selectedChannel.playingBank];
 			}
 
+			public boolean isRootModOctave(int y) {
+				if((this.noteNumbers[y]-this.rootNoteMidiNumber) % this.scaleTotalInSemitones == 0)
+					return true;
+				return false;
+			}
 		} // end of sequencerchannel class
 
 		
