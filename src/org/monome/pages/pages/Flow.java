@@ -93,6 +93,8 @@ public class Flow implements Page, Serializable {
 	public int ButtonNoMuteChannel = 9;
 	// 0
 	
+	public int[][] buttonPressedValue;
+	
 	public static final int MAX_SEQUENCE_LENGTH = 256;
 	public static final int NUMBER_OF_BANKS = 18;
 	public static final int SEQUENCE_HEIGHT = 51;
@@ -153,6 +155,10 @@ public class Flow implements Page, Serializable {
 	// steps top to bottom
 	private int[] rowSwap = new int[SEQUENCE_HEIGHT]; 
 	
+	// transpose amounts for the updated scale-based matrix mode
+	// rowswap will be kept up-to-date based on the transposeamounts
+	// this is in terms of rows
+	private int[] transposeAmounts = new int[SEQUENCE_HEIGHT];
 	
 /****************** end matrix mode vars   ***************/	
 	
@@ -510,6 +516,7 @@ public class Flow implements Page, Serializable {
 		}
 
 		
+		
 		selectedChannelNumber = 0;
 		selectedChannel = channels[0];
 		channels[0].playingBank = 0;
@@ -539,6 +546,7 @@ public class Flow implements Page, Serializable {
 
 		origGuiDimension = gui.getSize();
 		
+		buttonPressedValue = new int[this.monome.sizeX][this.monome.sizeY];
 		
     }
 
@@ -553,6 +561,7 @@ public class Flow implements Page, Serializable {
 		int x_seq;
 		int y_seq;
 		
+		buttonPressedValue[x][y]=value;
 		// top layer
 		// pattern mode button still held, these only work in sequencer mode
 		if(this.mode == SEQUENCERMODE) {
@@ -747,19 +756,26 @@ public class Flow implements Page, Serializable {
 							}
 						}
 					}
-					else { //value==0
-						
-							if(bankCopyModeAlreadyCopiedAtLeastOnce == false) {
+					else { //value==0 button released
+						if(bankCopyModeAlreadyCopiedAtLeastOnce == false) {
+							if(buttonPressedValue[0][this.monome.sizeY-1] > 0) {
+								// if lower left button is pressed don't change playing bank
+								channels[x].selectedBank = y;
+								this.selectedChannelNumber = x;
+								this.selectedChannel = this.channels[this.selectedChannelNumber];
+							}
+							else {
 								channels[x].scheduledChangeAtEndOfBarExists = true;
 								channels[x].scheduledChangeBank = y;
 								channels[x].selectedBank = y;
 								this.selectedChannelNumber = x;
 								this.selectedChannel = this.channels[this.selectedChannelNumber];
 							}
-							this.redrawDevice();
-							if(x == bankCopyModeWhatChannel && y == bankCopyModeWhatBank) {
-								bankCopyModeOn = false;	
-							}
+						}
+						this.redrawDevice();
+						if(x == bankCopyModeWhatChannel && y == bankCopyModeWhatBank) {
+							bankCopyModeOn = false;	
+						}
 					}					
 				}
 			}
@@ -1050,7 +1066,7 @@ public class Flow implements Page, Serializable {
 			int midiChannel = midiev.midiChannel;
 			int midino = midiev.midiNo;
 			
-			if(this.channels[midiev.sourceChannelNumber].notIndependentInSeqAndKeybModes && this.mode == KEYBOARDMODE) {
+			if(this.channels[midiev.sourceChannelNumber].isLinkedWithOtherChannels && this.mode == KEYBOARDMODE) {
 				keyboardModeLedFromMidiNumber(midino, 0, selectedChannel);
 			}
 			
@@ -1127,12 +1143,12 @@ public class Flow implements Page, Serializable {
 					value = this.briSeqNote;
 				} else if(this.selectedChannel.seqNoteLengths[selectedChannel.selectedBank][x_seq][y_seq] > 0)
 					value = this.briSeqNoteLen;
-				else if(selectedChannel.notIndependentInSeqAndKeybModes) { //look at the other channels for notes
+				else if(selectedChannel.isLinkedWithOtherChannels) { //look at the other channels for notes
 					for(int chn=0;chn<this.NUMBER_OF_CHANNELS;chn++) {
 						if(chn == this.selectedChannelNumber)
 							continue;
 						SequencerChannel loopChan = this.channels[chn];
-						if(!loopChan.notIndependentInSeqAndKeybModes)
+						if(!loopChan.isLinkedWithOtherChannels)
 							continue;
 						if (loopChan.sequence[loopChan.selectedBank][x_seq][y_seq] > 0) {
 							value = this.briSeqOtherChannelNote;
@@ -1233,7 +1249,7 @@ public class Flow implements Page, Serializable {
 						keyboardModeLedFromMidiNumber(note_num, (chan == selectedChannel ? briKeybNotePlaying : briKeybOtherChannels), this.selectedChannel);
 					
 					// light up notes on keyboard if necessary
-					//					if (chan.notIndependentInSeqAndKeybModes && this.mode == KEYBOARDMODE) {
+					//					if (chan.isLinkedWithOtherChannels && this.mode == KEYBOARDMODE) {
 					//						int bribri = briKeybOtherChannels;
 					//						if(chan == selectedChannel)
 					//							bribri = briKeybNotePlaying;
@@ -1254,7 +1270,7 @@ public class Flow implements Page, Serializable {
 	
 //	public void lightUpNotesOnKeyboard(SequencerChannel chan, int seq_pos, int value) {
 //		
-//		if (muteMode == 1 || !chan.notIndependentInSeqAndKeybModes || chan.selectedScaleIndex == SCALEINDEX_DRUMS) {
+//		if (muteMode == 1 || !chan.isLinkedWithOtherChannels || chan.selectedScaleIndex == SCALEINDEX_DRUMS) {
 //			return;
 //		}
 //		
@@ -2137,7 +2153,7 @@ public class Flow implements Page, Serializable {
 			public int midiChannel = 1;
 			
 			
-			public boolean notIndependentInSeqAndKeybModes = true;
+			public boolean isLinkedWithOtherChannels = true;
 			
 			public int number = 0; // the index of this channel in array, useful for midi note off scheduler
 			
@@ -2310,11 +2326,11 @@ public class Flow implements Page, Serializable {
 				
 				if(this.selectedScaleIndex != SCALEINDEX_DRUMS) {
 					this.isDrums = false;
-					this.notIndependentInSeqAndKeybModes = true;
+					this.isLinkedWithOtherChannels = true;
 				}
 				else {
 					this.isDrums = true;
-					this.notIndependentInSeqAndKeybModes = false;
+					this.isLinkedWithOtherChannels = false;
 				}
 				
 				this.noteNumbers[0] = rootNoteNumber+scaleSeminoteOffset[selectedScaleIndex];
