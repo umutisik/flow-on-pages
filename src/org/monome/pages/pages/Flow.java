@@ -12,6 +12,7 @@ import java.util.Scanner;
 
 
 
+
 import javax.sound.midi.InvalidMidiDataException;
 import javax.sound.midi.MidiDevice;
 import javax.sound.midi.MidiMessage;
@@ -117,7 +118,7 @@ public class Flow implements Page, Serializable {
 	//public static final int[] scaleKeyboardModeOffset = {0,0,12,12};
 	public static final int DEFAULT_VELOCITY = 103;
 	
-	
+	public int keyboardVelocity = 103;
 	
 	/**
 	 * The current MIDI clock tick number (from 0 to 6)
@@ -653,7 +654,7 @@ public class Flow implements Page, Serializable {
 			}
 				
 			if (y != (this.monome.sizeY - 1) || x < LastModeButton) { //if page change or mode buttons aren't the ones being pressed
-				int velocity = value * 127;
+				int velocity = value * keyboardVelocity;
 				int channel = 1;
 				
 				int keybNoteNum = (x - selectedChannel.rootNoteX) + selectedChannel.rowOffset*(selectedChannel.rootNoteY-y);
@@ -765,8 +766,10 @@ public class Flow implements Page, Serializable {
 								this.selectedChannel = this.channels[this.selectedChannelNumber];
 							}
 							else {
-								channels[x].scheduledChangeAtEndOfBarExists = true;
-								channels[x].scheduledChangeBank = y;
+								if(channels[x].playingBank != y) {
+									channels[x].scheduledChangeAtEndOfBarExists = true;
+									channels[x].scheduledChangeBank = y;
+								}
 								channels[x].selectedBank = y;
 								this.selectedChannelNumber = x;
 								this.selectedChannel = this.channels[this.selectedChannelNumber];
@@ -829,26 +832,26 @@ public class Flow implements Page, Serializable {
 						
 						selectedChannel.sequenceAddNote(selectedChannel.selectedBank, y_seq, x_seq, selectedChannel.newNoteLength, DEFAULT_VELOCITY);
 							
-						int note_len = selectedChannel.seqNoteLengths[selectedChannel.selectedBank][x_seq][y_seq];
-						// redraw this part of the row
-						for(int i=0;i < note_len; i++) {
-							if(x_seq + i >= MAX_SEQUENCE_LENGTH)
-								break;
-							if(selectedChannel.sequence[selectedChannel.selectedBank][x_seq+i][y_seq] == 0) {
-								if(x+i <= 15) { 
-									if(this.selectedChannel.seqNoteLengths[selectedChannel.selectedBank][x_seq+i][y_seq] == 0) 
-										flow_led(x+i, y, briOff, this.index);
-									else
-										flow_led(x+i, y, briSeqNoteLen, this.index);
-								}
-							} else { // if there is a note here
-								if(x+i <= 15) 
-									flow_led(x+i, y, briSeqNote, this.index);
-							}
-						}
-						
-						// update the led
-						flow_led(x, y, briSeqNote, this.index);
+//						int note_len = selectedChannel.seqNoteLengths[selectedChannel.selectedBank][x_seq][y_seq];
+//						// redraw this part of the row
+//						for(int i=0;i < note_len; i++) {
+//							if(x_seq + i >= MAX_SEQUENCE_LENGTH)
+//								break;
+//							if(selectedChannel.sequence[selectedChannel.selectedBank][x_seq+i][y_seq] == 0) {
+//								if(x+i <= 15) { 
+//									if(this.selectedChannel.seqNoteLengths[selectedChannel.selectedBank][x_seq+i][y_seq] == 0) 
+//										flow_led(x+i, y, briOff, this.index);
+//									else
+//										flow_led(x+i, y, briSeqNoteLen, this.index);
+//								}
+//							} else { // if there is a note here
+//								if(x+i <= 15) 
+//									flow_led(x+i, y, briSeqNote, this.index);
+//							}
+//						}
+//						
+//						// update the led
+//						flow_led(x, y, briSeqNote, this.index);
 						
 						
 						//topLayer
@@ -1679,6 +1682,34 @@ public class Flow implements Page, Serializable {
 			xml.append("            <rootNoteNumber>" + channels[chnum].rootNoteNumber + "</rootNoteNumber>\n");
 			xml.append("            <keyboardRowOffset>" + channels[chnum].keyboardRowOffset + "</keyboardRowOffset>\n");
 			
+			xml.append("            <selectedBank>" + channels[chnum].selectedBank + "</selectedBank>\n");
+			xml.append("            <playingBank>" + channels[chnum].playingBank + "</playingBank>\n");
+			xml.append("            <isMuted>" + channels[chnum].isMuted + "</isMuted>\n");
+			xml.append("            <newNoteLength>" + channels[chnum].newNoteLength + "</newNoteLength>\n");
+			//xml.append("            <midiChannel>" + channels[chnum].midiChannel + "</midiChannel>\n");
+			xml.append("            <patternsSelected>");
+			for(int i=0;i<NUMBER_OF_BANKS;i++) {
+				xml.append(this.channels[chnum].patternsSelected[i]);
+				xml.append(" ");
+			}
+			xml.append("</patternsSelected>\n");
+			xml.append("            <patternsStarting>");
+			for(int i=0;i<NUMBER_OF_BANKS;i++) {
+				xml.append(this.channels[chnum].patternsStarting[i]);
+				xml.append(" ");
+			}
+			xml.append("</patternsStarting>\n");
+			xml.append("            <patternsEnding>");
+			for(int i=0;i<NUMBER_OF_BANKS;i++) {
+				xml.append(this.channels[chnum].patternsEnding[i]);
+				xml.append(" ");
+			}
+			xml.append("</patternsEnding>\n");
+			
+			//some excluded variables			
+			//			public boolean isDrums = false;
+			//			public boolean isLinkedWithOtherChannels = true;
+			
 			xml.append("      </channel>\n");
 		}
 		
@@ -1716,6 +1747,7 @@ public class Flow implements Page, Serializable {
 		}
 	}
 
+	
 	
 		
 	
@@ -1792,6 +1824,33 @@ public class Flow implements Page, Serializable {
 			channels[chnum].rootNoteNumber = Integer.parseInt(this.monome.readConfigValue(chEl, "rootNoteNumber"));
 			channels[chnum].keyboardRowOffset = Integer.parseInt(this.monome.readConfigValue(chEl, "keyboardRowOffset"));
 
+			channels[chnum].selectedBank = Integer.parseInt(this.monome.readConfigValue(chEl, "selectedBank"));
+			channels[chnum].playingBank = Integer.parseInt(this.monome.readConfigValue(chEl, "playingBank"));
+			channels[chnum].isMuted = Boolean.parseBoolean(this.monome.readConfigValue(chEl, "isMuted"));
+			channels[chnum].newNoteLength = Integer.parseInt(this.monome.readConfigValue(chEl, "newNoteLength"));
+			
+			NodeList psNL = chEl.getElementsByTagName("patternsSelected");
+			String sequence = this.monome.readConfigValue(chEl, "patternsSelected");
+			Scanner scan = new Scanner(sequence);
+			for (int i=0; i < NUMBER_OF_BANKS; i++) {
+				this.channels[chnum].patternsSelected[i] = scan.nextInt();
+			}
+			
+			psNL = chEl.getElementsByTagName("patternsStarting");
+			sequence = this.monome.readConfigValue(chEl, "patternsStarting");
+			scan = new Scanner(sequence);
+			for (int i=0; i < NUMBER_OF_BANKS; i++) {
+				this.channels[chnum].patternsStarting[i] = scan.nextInt();
+			}
+			
+			psNL = chEl.getElementsByTagName("patternsEnding");
+			sequence = this.monome.readConfigValue(chEl, "patternsEnding");
+			scan = new Scanner(sequence);
+			for (int i=0; i < NUMBER_OF_BANKS; i++) {
+				this.channels[chnum].patternsEnding[i] = scan.nextInt();
+			}
+			
+			
 			// reset the gui display for the selected channel
 			gui.channelCB.getActionListeners()[0].actionPerformed(null);
 		}
@@ -2272,6 +2331,8 @@ public class Flow implements Page, Serializable {
 					this.seqNoteLengths[bankno][x_seq][y_seq] = length;
 				
 				this.reGenerateNoteLengthArrayRow(bankno, y_seq, x_seq, x_seq+length);
+				
+				//this.reGenerateSummedSequenceForBackgroundDisplay(); maybe todo
 			}
 			
 			// fixes a row's note length data, to be used in the case of changes where the note length data is altered
