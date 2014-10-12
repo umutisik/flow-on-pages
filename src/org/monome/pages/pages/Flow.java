@@ -1,13 +1,15 @@
 package org.monome.pages.pages;
 
 import java.awt.Dimension;
+
 import java.awt.event.ActionEvent;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Random;
 import java.util.Scanner;
 
-
+import javax.swing.Timer;
+import java.awt.event.ActionListener;
 
 
 
@@ -126,6 +128,19 @@ public class Flow implements Page, Serializable {
 	private int tickNum = 0;
 
 	
+	/**
+	 * Tempo syncing, ticks
+	 * 
+	 */
+	boolean ticksHaveStopped = true;
+	long timeOfLastTick=0;
+	long[] tickDifferences;
+	long currentPeriod;
+	static int numberOfTickDifferencesConsidered = 5;
+	Timer nextTickTimer;
+	
+	
+	
 	
 	
 	
@@ -175,6 +190,10 @@ public class Flow implements Page, Serializable {
 	public static final int MAX_LEN_OF_MIDI_SCHEDULER = 2048; // in ticks!!!
 	
 	private ArrayList[] midiNoteOffSchedule = new ArrayList[MAX_LEN_OF_MIDI_SCHEDULER]; 
+	
+	// to schedule midi note on events to be played immediately at the tick
+	private ArrayList midiPlayNext;
+	
 	
 	private int midiSchedulerPosition; 
 	
@@ -516,8 +535,6 @@ public class Flow implements Page, Serializable {
 			generateIsMidiNumberInScale(channels[i]);
 		}
 
-		
-		
 		selectedChannelNumber = 0;
 		selectedChannel = channels[0];
 		channels[0].playingBank = 0;
@@ -532,6 +549,20 @@ public class Flow implements Page, Serializable {
 			midiNoteOffSchedule[i] = new ArrayList<FlowMidiEvent>();
 		}
 
+		
+		// initialize tempo sync
+		timeOfLastTick = 0;
+		tickDifferences = new long[numberOfTickDifferencesConsidered];
+		for(int i=0;i<numberOfTickDifferencesConsidered;i++)
+			tickDifferences[i] = 20;
+		ActionListener hanti = new ActionListener() {
+		      public void actionPerformed(ActionEvent evt) {
+		          handleCorrectedTick();
+		      }
+		  };
+
+		nextTickTimer = new Timer(1000, hanti);
+		nextTickTimer.setRepeats(false);
 		
 
 		// setup default notes
@@ -548,6 +579,8 @@ public class Flow implements Page, Serializable {
 		origGuiDimension = gui.getSize();
 		
 		buttonPressedValue = new int[this.monome.sizeX][this.monome.sizeY];
+		
+		
 		
     }
 
@@ -932,14 +965,58 @@ public class Flow implements Page, Serializable {
 	}
 
 	
+	int timeAdjustmentInMs = 24;
+	int currentAdjustmentInMsForNextTick = 25;
+	
+	// this is the handletick called by the main program
+	public void handleTick(MidiDevice device) {
+		//handleCorrectedTick();
+		//return;
+		
+		long t = System.currentTimeMillis();
+		for(int i=0; i+1<numberOfTickDifferencesConsidered; i++)
+			tickDifferences[i+1] = tickDifferences[i];
+		tickDifferences[0] = t - timeOfLastTick;
+		if(tickDifferences[0]>300) 
+		{
+			handleCorrectedTick();
+			tickDifferences[0] = tickDifferences[1];
+			currentAdjustmentInMsForNextTick = timeAdjustmentInMs;
+			System.out.println("startooo");
+		}
+		timeOfLastTick = t;
+		currentPeriod = 0;
+		for(int i=0;i<numberOfTickDifferencesConsidered;i++)
+			currentPeriod += tickDifferences[i];
+		
+		currentPeriod = (long) ((float) currentPeriod/numberOfTickDifferencesConsidered);
+		//playNotes(selectedChannel, 0, 1);
+		
+		//System.out.println(((int)currentPeriod));
+
+		//handleCorrectedTick();
+		int curp = (int) currentPeriod;
+		
+		while(currentAdjustmentInMsForNextTick > curp) {
+			handleCorrectedTick();
+			currentAdjustmentInMsForNextTick -= curp;
+		}
+		nextTickTimer.setInitialDelay(curp - currentAdjustmentInMsForNextTick);
+		//System.out.println(curp-currentAdjustmentInMsForNextTick);
+		nextTickTimer.start();
+		
+	}
+		
 
 	/* (non-Javadoc)
 	 * @see org.monome.pages.Page#handleTick(MidiDevice device)
 	 */
-	public void handleTick(MidiDevice device) {
+	// this is the internal handle tick
+	public void handleCorrectedTick() {
 		
 		// if there are note-off messages scheduled for this time, do that.
 		turnOffScheduledNotes();
+		
 		
 		if (this.tickNum >= quantization) {
 			this.tickNum = 0;
@@ -952,6 +1029,8 @@ public class Flow implements Page, Serializable {
 		
 		// send a note on for lit leds on this sequence position
 		if (this.tickNum == 0) {
+			//playNotes(selectedChannel, 0, 1);
+			
 			if(keyboardRecordMode)
 				recordingTimer++;
 			// play notes for all channels, ci=channel index
@@ -1104,6 +1183,11 @@ public class Flow implements Page, Serializable {
 	 * @see org.monome.pages.Page#handleReset()
 	 */
 	public void handleReset() {
+		//this is enough to reset the sync
+		this.timeOfLastTick = 0;
+		nextTickTimer.stop();
+		//TODO looping in reason also calls this, this causes mistiming. maybe this should take effect after one step if necessary
+		
 		this.tickNum = 0;
 		for(int ci = 0; ci<NUMBER_OF_CHANNELS; ci++)
 		{
@@ -1270,6 +1354,9 @@ public class Flow implements Page, Serializable {
 			
 		}
 	}
+	
+	
+	
 	
 //	public void lightUpNotesOnKeyboard(SequencerChannel chan, int seq_pos, int value) {
 //		
