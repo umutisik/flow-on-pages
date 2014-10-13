@@ -557,6 +557,7 @@ public class Flow implements Page, Serializable {
 			tickDifferences[i] = 20;
 		ActionListener hanti = new ActionListener() {
 		      public void actionPerformed(ActionEvent evt) {
+		    	  System.out.println("timer end: " + System.currentTimeMillis());
 		          handleCorrectedTick();
 		      }
 		  };
@@ -965,45 +966,53 @@ public class Flow implements Page, Serializable {
 	}
 
 	
-	int timeAdjustmentInMs = 24;
-	int currentAdjustmentInMsForNextTick = 25;
+	int timeAdjustmentInMs = 20;
+	int currentAdjustmentInMsForNextTick = 20;
 	
 	// this is the handletick called by the main program
 	public void handleTick(MidiDevice device) {
+//		//System.out.print("tick");
 		//handleCorrectedTick();
-		//return;
-		
-		long t = System.currentTimeMillis();
-		for(int i=0; i+1<numberOfTickDifferencesConsidered; i++)
-			tickDifferences[i+1] = tickDifferences[i];
-		tickDifferences[0] = t - timeOfLastTick;
-		if(tickDifferences[0]>300) 
-		{
-			handleCorrectedTick();
-			tickDifferences[0] = tickDifferences[1];
-			currentAdjustmentInMsForNextTick = timeAdjustmentInMs;
-			System.out.println("startooo");
-		}
-		timeOfLastTick = t;
-		currentPeriod = 0;
-		for(int i=0;i<numberOfTickDifferencesConsidered;i++)
-			currentPeriod += tickDifferences[i];
-		
-		currentPeriod = (long) ((float) currentPeriod/numberOfTickDifferencesConsidered);
-		//playNotes(selectedChannel, 0, 1);
-		
-		//System.out.println(((int)currentPeriod));
-
-		//handleCorrectedTick();
-		int curp = (int) currentPeriod;
-		
-		while(currentAdjustmentInMsForNextTick > curp) {
-			handleCorrectedTick();
-			currentAdjustmentInMsForNextTick -= curp;
-		}
-		nextTickTimer.setInitialDelay(curp - currentAdjustmentInMsForNextTick);
-		//System.out.println(curp-currentAdjustmentInMsForNextTick);
+		nextTickTimer.setInitialDelay(2000);
 		nextTickTimer.start();
+
+		return;
+		
+		
+//		long t = System.currentTimeMillis();
+//		for(int i=0; i+1<numberOfTickDifferencesConsidered; i++)
+//			tickDifferences[i+1] = tickDifferences[i];
+//		tickDifferences[0] = t - timeOfLastTick;
+//		//System.out.println(t);
+//		if(tickDifferences[0]>300) 
+//		{
+//			handleCorrectedTick();
+//			tickDifferences[0] = tickDifferences[1];
+//			currentAdjustmentInMsForNextTick = timeAdjustmentInMs;
+//			//System.out.println("startooo");
+//		}
+//		timeOfLastTick = t;
+//		currentPeriod = 0;
+//		for(int i=0;i<numberOfTickDifferencesConsidered;i++)
+//			currentPeriod += tickDifferences[i];
+//		
+//		currentPeriod = (long) ((float) currentPeriod/numberOfTickDifferencesConsidered);
+//		//playNotes(selectedChannel, 0, 1);
+//		
+//		//System.out.println(((int)currentPeriod));
+//
+//		//handleCorrectedTick();
+//		int curp = (int) currentPeriod;
+//		
+//		while(currentAdjustmentInMsForNextTick > curp) {
+//			System.out.println("DOUBLE HIT");
+//			handleCorrectedTick();
+//			currentAdjustmentInMsForNextTick -= curp;
+//		}
+//		nextTickTimer.setInitialDelay(curp - currentAdjustmentInMsForNextTick);
+//		//System.out.println(curp-currentAdjustmentInMsForNextTick);
+//		System.out.println("timer start for " + (curp - currentAdjustmentInMsForNextTick) + " at :" + System.currentTimeMillis());
+//		nextTickTimer.start();
 		
 	}
 		
@@ -1183,9 +1192,17 @@ public class Flow implements Page, Serializable {
 	 * @see org.monome.pages.Page#handleReset()
 	 */
 	public void handleReset() {
-		//this is enough to reset the sync
-		this.timeOfLastTick = 0;
-		nextTickTimer.stop();
+		// reset the sync
+		// but reset the sync only if the sync is going to be off by a significant amount
+		long t = System.currentTimeMillis(); 
+		if( Math.abs(((int)t - (int)timeOfLastTick)-currentPeriod)>5) {
+			//System.out.println("reset sync" + ((int)t - (int)timeOfLastTick) + " " + currentPeriod);
+			this.timeOfLastTick = 0;
+			nextTickTimer.stop();
+		} 
+//		else {
+//			System.out.println("NO reset sync" + ((int)t - (int)timeOfLastTick) + " " + currentPeriod);
+//		}
 		//TODO looping in reason also calls this, this causes mistiming. maybe this should take effect after one step if necessary
 		
 		this.tickNum = 0;
