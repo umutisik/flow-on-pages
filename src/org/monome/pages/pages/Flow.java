@@ -8,11 +8,12 @@ import java.util.ArrayList;
 import java.util.Random;
 import java.util.Scanner;
 
-import javax.swing.Timer;
 import java.awt.event.ActionListener;
 
-
-
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 
 import javax.sound.midi.InvalidMidiDataException;
@@ -30,6 +31,8 @@ import org.monome.pages.pages.gui.FlowGUI;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
+
+import static java.util.concurrent.TimeUnit.*;
 
 
 /**
@@ -137,11 +140,19 @@ public class Flow implements Page, Serializable {
 	long[] tickDifferences;
 	long currentPeriod;
 	static int numberOfTickDifferencesConsidered = 5;
-	Timer nextTickTimer;
 	
+    //////////////// scheduler for scheduling next tick:
+    
+	ScheduledThreadPoolExecutor sch = (ScheduledThreadPoolExecutor) Executors.newScheduledThreadPool(5);
 	
-	
-	
+    final Runnable scheduledTick = new Runnable() {
+    	public void run() { 
+    		//System.out.println("beep" + System.currentTimeMillis()); 
+    		handleCorrectedTick(); 
+    		}
+    };
+    
+
 	
 	
 /****************** keyboard mode vars (umut) ***************/
@@ -517,6 +528,7 @@ public class Flow implements Page, Serializable {
     }
 
     
+    
     //////////////////////////////////////////////////////////////////////////////////
     
 	/**
@@ -555,17 +567,8 @@ public class Flow implements Page, Serializable {
 		tickDifferences = new long[numberOfTickDifferencesConsidered];
 		for(int i=0;i<numberOfTickDifferencesConsidered;i++)
 			tickDifferences[i] = 20;
-		ActionListener hanti = new ActionListener() {
-		      public void actionPerformed(ActionEvent evt) {
-		    	  System.out.println("timer end: " + System.currentTimeMillis());
-		          handleCorrectedTick();
-		      }
-		  };
 
-		nextTickTimer = new Timer(1000, hanti);
-		nextTickTimer.setRepeats(false);
 		
-
 		// setup default notes
 		//gui.channelTF.setText(Integer.toString(channels[0].midiChannel));
 		// debuggg
@@ -966,53 +969,60 @@ public class Flow implements Page, Serializable {
 	}
 
 	
-	int timeAdjustmentInMs = 20;
+	int timeAdjustmentInMs = 3;
 	int currentAdjustmentInMsForNextTick = 20;
 	
 	// this is the handletick called by the main program
 	public void handleTick(MidiDevice device) {
-//		//System.out.print("tick");
+		//System.out.print("tick");
 		//handleCorrectedTick();
-		nextTickTimer.setInitialDelay(2000);
-		nextTickTimer.start();
+		
+		
+		//nextTickTimer.setInitialDelay(2000);
+		//nextTickTimer.start();
 
-		return;
+		//System.out.println("timer start at " + System.currentTimeMillis());
+		// schedule tick
+		//ScheduledFuture<?> oneShotFuture = sch.schedule(scheduledTick, 10000, TimeUnit.MILLISECONDS);
+		
+		//return;
 		
 		
-//		long t = System.currentTimeMillis();
-//		for(int i=0; i+1<numberOfTickDifferencesConsidered; i++)
-//			tickDifferences[i+1] = tickDifferences[i];
-//		tickDifferences[0] = t - timeOfLastTick;
-//		//System.out.println(t);
-//		if(tickDifferences[0]>300) 
-//		{
-//			handleCorrectedTick();
-//			tickDifferences[0] = tickDifferences[1];
-//			currentAdjustmentInMsForNextTick = timeAdjustmentInMs;
-//			//System.out.println("startooo");
-//		}
-//		timeOfLastTick = t;
-//		currentPeriod = 0;
-//		for(int i=0;i<numberOfTickDifferencesConsidered;i++)
-//			currentPeriod += tickDifferences[i];
-//		
-//		currentPeriod = (long) ((float) currentPeriod/numberOfTickDifferencesConsidered);
-//		//playNotes(selectedChannel, 0, 1);
-//		
-//		//System.out.println(((int)currentPeriod));
-//
-//		//handleCorrectedTick();
-//		int curp = (int) currentPeriod;
-//		
-//		while(currentAdjustmentInMsForNextTick > curp) {
-//			System.out.println("DOUBLE HIT");
-//			handleCorrectedTick();
-//			currentAdjustmentInMsForNextTick -= curp;
-//		}
-//		nextTickTimer.setInitialDelay(curp - currentAdjustmentInMsForNextTick);
-//		//System.out.println(curp-currentAdjustmentInMsForNextTick);
-//		System.out.println("timer start for " + (curp - currentAdjustmentInMsForNextTick) + " at :" + System.currentTimeMillis());
-//		nextTickTimer.start();
+		long t = System.currentTimeMillis();
+		for(int i=0; i+1<numberOfTickDifferencesConsidered; i++)
+			tickDifferences[i+1] = tickDifferences[i];
+		tickDifferences[0] = t - timeOfLastTick;
+		//System.out.println(t);
+		if(tickDifferences[0]>300) 
+		{
+			handleCorrectedTick();
+			tickDifferences[0] = tickDifferences[1];
+			currentAdjustmentInMsForNextTick = timeAdjustmentInMs;
+			//System.out.println("startooo");
+		}
+		timeOfLastTick = t;
+		currentPeriod = 0;
+		for(int i=0;i<numberOfTickDifferencesConsidered;i++)
+			currentPeriod += tickDifferences[i];
+		
+		currentPeriod = (long) ((float) currentPeriod/numberOfTickDifferencesConsidered);
+		//playNotes(selectedChannel, 0, 1);
+		
+		//System.out.println(((int)currentPeriod));
+
+		//handleCorrectedTick();
+		int curp = (int) currentPeriod;
+		
+		while(currentAdjustmentInMsForNextTick > curp) {
+			System.out.println("DOUBLE HIT");
+			handleCorrectedTick();
+			currentAdjustmentInMsForNextTick -= curp;
+		}
+		//nextTickTimer.setInitialDelay(curp - currentAdjustmentInMsForNextTick);
+		ScheduledFuture<?> oneShotFuture = sch.schedule(scheduledTick, curp - currentAdjustmentInMsForNextTick, TimeUnit.MILLISECONDS);
+		//System.out.println("timer start for " + (curp - currentAdjustmentInMsForNextTick) + " at :" + System.currentTimeMillis());
+		
+		//System.out.println(curp-currentAdjustmentInMsForNextTick);
 		
 	}
 		
@@ -1198,7 +1208,9 @@ public class Flow implements Page, Serializable {
 		if( Math.abs(((int)t - (int)timeOfLastTick)-currentPeriod)>5) {
 			//System.out.println("reset sync" + ((int)t - (int)timeOfLastTick) + " " + currentPeriod);
 			this.timeOfLastTick = 0;
-			nextTickTimer.stop();
+			//TODO nextTickTimer.stop();
+			sch.remove(scheduledTick);
+			
 		} 
 //		else {
 //			System.out.println("NO reset sync" + ((int)t - (int)timeOfLastTick) + " " + currentPeriod);
