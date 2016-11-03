@@ -969,8 +969,8 @@ public class Flow implements Page, Serializable {
 	}
 
 	
-	int timeAdjustmentInMs = 3;
-	int currentAdjustmentInMsForNextTick = 20;
+	int timeAdjustmentInMs = 0;
+	int currentAdjustmentInMsForNextTick = 0;
 	
 	// this is the handletick called by the main program
 	public void handleTick(MidiDevice device) {
